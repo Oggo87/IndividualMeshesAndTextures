@@ -39,8 +39,12 @@ DWORD cockpitTexture = 0x644d94;
 DWORD helmetTexture1 = 0x644d84;
 DWORD helmetTexture2 = 0x644d74;
 
+DWORD carsFolderStr = 0x00644ee4;
+
 DWORD ReplaceWildCards = 0x005DB088;
 DWORD MeshFileExists = 0x0046af40;
+
+DWORD lastLoadedFileIndex = 0x00a05c3c;
 
 DWORD teamName;
 
@@ -49,6 +53,7 @@ DWORD var1, var2, var3, var4, var5, var6;
 DWORD meshNotExists = false;
 
 char* extension = NULL;
+char textureFileName[128];
 
 __declspec(naked) void genericMeshPerTrack() {
     
@@ -246,46 +251,63 @@ __declspec(naked) void cockpitTexturePerTrack() {
         push ECX
         call ReplaceWildCards
         //check if file exists
-        //mov var1, EAX
-        //mov var2, ECX
-        //mov var3, EDX
-        //mov EAX, dword ptr[ESP]
-        //mov var4, EAX
+        mov var1, EAX
+        mov var2, ECX
+        mov var3, EDX
+        mov EAX, dword ptr[ESP]
+        mov var4, EAX
+        //mov EAX, 0x00a05c3c
+        //mov dword ptr[EAX], 0
     }
 
-    //extension = strstr((char*)var4, ".tga");
-    //if(extension != NULL)
-    //{
-    //    extension[2] = 'e';
-    //    extension[3] = 'x';
-    //}
+    //comparison has to include subfolders within cars.wad (i.e. cars\ in this case)
+    strcpy_s(textureFileName, 128, (char*)carsFolderStr);
+    strcat_s(textureFileName, 128, (char*)var4);
+    var4 = PtrToUlong(textureFileName);
 
-    //__asm{
-    //    //push dword ptr[ESP + 0x4]
-    //    push 0
-    //    push var4
-    //    call MeshFileExists
-    //    mov meshNotExists, EAX
-    //    mov EAX, var1
-    //    mov ECX, var2
-    //    mov EDX, var3
-    //}
+    //extension needs to be tex for the comparison to work
+    extension = strstr(textureFileName, ".tga");
+    if(extension != NULL)
+    {
+        extension[2] = 'e';
+        extension[3] = 'x';
+    }
+
+    __asm{
+        //push dword ptr[ESP + 0x4]
+        push 0
+        push var4
+        call MeshFileExists
+        mov meshNotExists, EAX
+        mov EAX, var1
+        mov ECX, var2
+        mov EDX, var3
+    }
  
-    ////fall-back
-    //if (meshNotExists)
-    //{
-    //    _asm {
-    //        pop var1
-    //        pop var2
-    //        pop var3
-    //        pop var4
-    //        push 0x1
-    //        push var3
-    //        push var2
-    //        push var1
-    //        call ReplaceWildCards
-    //    }
-    //}
+    //fall-back
+    if (meshNotExists)
+    {
+        _asm {
+            pop var1
+            pop var2
+            pop var3
+            pop var4
+            pop var5
+            push 0x1
+            push var4
+            push var3
+            push var2
+            push var1
+            call ReplaceWildCards
+            mov var1, ESP
+        }
+
+        OutputDebugStringA("Reverting to default texture [");
+
+        OutputDebugStringA(*(char**)ULongToPtr(var1));
+
+        OutputDebugStringA("]\n");
+    }
     _asm { //pop modified stack
         pop var1
         pop var2
