@@ -1,21 +1,45 @@
 #include <windows.h>
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <malloc.h>
+
+#define VAR_NAME(var) (#var)
+
 using namespace std;
+
+string dwordToString(DWORD address) {
+
+    ostringstream outputString;
+
+    outputString.str(string());
+    outputString << "0x" << hex << setw(sizeof(DWORD) * 2) << setfill('0') << address;
+
+    return outputString.str();
+
+}
+
+string ptrToString(LPVOID address) {
+
+    return dwordToString(PtrToUlong(address));
+}
 
 void PatchAddress(LPVOID address,LPBYTE patch, SIZE_T size) {
     DWORD oldProtect;
+
+    string addressString = ptrToString(address);
+
     if (VirtualProtect(address, size, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+
         memcpy(address, patch, size);
         VirtualProtect(address, size, oldProtect, &oldProtect);
-        OutputDebugStringA("Memory patch successful\n");
+
+        OutputDebugStringA(("Memory patched successfully at address " + addressString + "\n").c_str());
     }
     else {
-        OutputDebugStringA("Error in VirtualProtect during patch\n");
+        OutputDebugStringA(("Error while patching address " + addressString + "\n").c_str());
     }
 }
-
 
 DWORD genericMeshStartAddress = 0x00487100;
 DWORD individualMeshStartAddress = 0x00487059;
@@ -466,47 +490,41 @@ __declspec(naked) void helmetTexture2PerTrack() {
 
 }
 
+void RerouteFunction(DWORD jumpToAddress, DWORD targetFunction, string functionName = "")
+{
+    BYTE jmpCode[5] = { 0xe9, 0x0, 0x0, 0x0, 0x0 };
+
+    //Offset to jump into the re-routed function
+    DWORD jumpOffset = targetFunction - jumpToAddress - 5;
+
+    //append the jump offset to the jmp asm instruction code
+    memcpy(&jmpCode[1], &jumpOffset, sizeof(DWORD));
+
+    OutputDebugStringA(("Rerouting starting at address " + dwordToString(jumpToAddress) + "\n").c_str());
+
+    if (functionName == "")
+        functionName = "target function";
+
+    OutputDebugStringA(("Address of " + functionName + ": " + dwordToString(targetFunction) + "\n").c_str());
+
+    //Patch memory to jump
+    PatchAddress((LPVOID)jumpToAddress, (BYTE*)&jmpCode, sizeof(jmpCode));
+
+}
 
 DWORD WINAPI MainThread(LPVOID param) {
 
     ostringstream outputString;
     BYTE patchCodeJmp = 0xe9;
 
-    //Offset to jump into the re-routed function for generic meshes
-    DWORD genericMeshJumpOffset = PtrToUlong(genericMeshPerTrack) - genericMeshStartAddress - 5;
+    //Re-route for generic meshes
+    RerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshPerTrack), VAR_NAME(genericMeshPerTrack));
 
-    outputString.str(string());
-    outputString << hex << showbase << PtrToUlong(genericMeshPerTrack);
+    //Re-route for individual meshes
+    RerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshPerTrack), VAR_NAME(individualMeshPerTrack));
 
-    OutputDebugStringA(("Address of genericMeshPerTrack: " + outputString.str() + "\n").c_str());
-
-    //Patch memory to jump
-    PatchAddress((LPVOID)genericMeshStartAddress, (BYTE*)&patchCodeJmp, sizeof(patchCodeJmp));
-    PatchAddress((LPVOID)(genericMeshStartAddress + 1), (BYTE*)&genericMeshJumpOffset, sizeof(&genericMeshJumpOffset));
-
-    //Offset to jump into the re-routed function for individual meshes
-    DWORD individualMeshJumpOffset = PtrToUlong(individualMeshPerTrack) - individualMeshStartAddress - 5;
-
-    outputString.str(string());
-    outputString << hex << showbase << PtrToUlong(individualMeshPerTrack);
-
-    OutputDebugStringA(("Address of individualMeshPerTrack: " + outputString.str() + "\n").c_str());
-
-    //Patch memory to jump
-    PatchAddress((LPVOID)individualMeshStartAddress, (BYTE*)&patchCodeJmp, sizeof(patchCodeJmp));
-    PatchAddress((LPVOID)(individualMeshStartAddress + 1), (BYTE*)&individualMeshJumpOffset, sizeof(&individualMeshJumpOffset));
-
-    //Offset to jump into the re-routed function for default meshes
-    DWORD defaultMeshJumpOffset = PtrToUlong(defaultMeshPerTrack) - defaultMeshStartAddress - 5;
-
-    outputString.str(string());
-    outputString << hex << showbase << PtrToUlong(defaultMeshPerTrack);
-
-    OutputDebugStringA(("Address of defaultMeshPerTrack: " + outputString.str() + "\n").c_str());
-
-    //Patch memory to jump
-    PatchAddress((LPVOID)defaultMeshStartAddress, (BYTE*)&patchCodeJmp, sizeof(patchCodeJmp));
-    PatchAddress((LPVOID)(defaultMeshStartAddress + 1), (BYTE*)&defaultMeshJumpOffset, sizeof(&defaultMeshJumpOffset));
+    //Re-route for default meshes
+    RerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
 
     //Allocate memory for new file name string
     char* cockpitTextureFileName = (char*)VirtualAlloc(NULL, 256, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -517,17 +535,8 @@ DWORD WINAPI MainThread(LPVOID param) {
         strcpy_s(cockpitTextureFileName, 256, "cp_%s_car%d_track_%d.tga");
         cockpitTexture = PtrToUlong(cockpitTextureFileName);
 
-        //Offset to jump into the re-routed function for cockpit textures
-        DWORD cockpitTexturesJumpOffset = PtrToUlong(cockpitTexturePerTrack) - cockpitTextureSartAddress - 5;
-
-        outputString.str(string());
-        outputString << hex << showbase << PtrToUlong(cockpitTexturePerTrack);
-
-        OutputDebugStringA(("Address of cockpitTexturePerTrack: " + outputString.str() + "\n").c_str());
-
-        //Patch memory to jump
-        PatchAddress((LPVOID)cockpitTextureSartAddress, (BYTE*)&patchCodeJmp, sizeof(patchCodeJmp));
-        PatchAddress((LPVOID)(cockpitTextureSartAddress + 1), (BYTE*)&cockpitTexturesJumpOffset, sizeof(&cockpitTexturesJumpOffset));
+        //Re-route for cockpit textures
+        RerouteFunction(cockpitTextureSartAddress, PtrToUlong(cockpitTexturePerTrack), VAR_NAME(cockpitTexturePerTrack));
     }
 
     //Allocate memory for new file name string
@@ -539,17 +548,8 @@ DWORD WINAPI MainThread(LPVOID param) {
         strcpy_s(helmetTexture1FileName, 256, "Driver%d_1_track_%d.tga");
         helmetTexture1 = PtrToUlong(helmetTexture1FileName);
 
-        //Offset to jump into the re-routed function for helmet texture 1
-        DWORD helmetTexture1JumpOffset = PtrToUlong(helmetTexture1PerTrack) - helmetTexture1StartAddress - 5;
-
-        outputString.str(string());
-        outputString << hex << showbase << PtrToUlong(helmetTexture1PerTrack);
-
-        OutputDebugStringA(("Address of helmetTexture1PerTrack: " + outputString.str() + "\n").c_str());
-
-        //Patch memory to jump
-        PatchAddress((LPVOID)helmetTexture1StartAddress, (BYTE*)&patchCodeJmp, sizeof(patchCodeJmp));
-        PatchAddress((LPVOID)(helmetTexture1StartAddress + 1), (BYTE*)&helmetTexture1JumpOffset, sizeof(&helmetTexture1JumpOffset));
+        //Re-route for helmet texture 1
+        RerouteFunction(helmetTexture1StartAddress, PtrToUlong(helmetTexture1PerTrack), VAR_NAME(helmetTexture1PerTrack));
     }
 
     //Allocate memory for new file name string
@@ -561,17 +561,8 @@ DWORD WINAPI MainThread(LPVOID param) {
         strcpy_s(helmetTexture2FileName, 256, "Driver%d_2_track_%d.tga");
         helmetTexture2 = PtrToUlong(helmetTexture2FileName);
 
-        //Offset to jump into the re-routed function for helmet texture 2
-        DWORD helmetTexture2JumpOffset = PtrToUlong(helmetTexture2PerTrack) - helmetTexture2StartAddress - 5;
-
-        outputString.str(string());
-        outputString << hex << showbase << PtrToUlong(helmetTexture2PerTrack);
-
-        OutputDebugStringA(("Address of helmetTexture2PerTrack: " + outputString.str() + "\n").c_str());
-
-        //Patch memory to jump
-        PatchAddress((LPVOID)helmetTexture2StartAddress, (BYTE*)&patchCodeJmp, sizeof(patchCodeJmp));
-        PatchAddress((LPVOID)(helmetTexture2StartAddress + 1), (BYTE*)&helmetTexture2JumpOffset, sizeof(&helmetTexture2JumpOffset));
+        //Re-route for helmet texture 2
+        RerouteFunction(helmetTexture2StartAddress, PtrToUlong(helmetTexture2PerTrack), VAR_NAME(helmetTexture2PerTrack));
     }
     
     return 0;
