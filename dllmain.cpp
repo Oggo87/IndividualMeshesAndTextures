@@ -49,6 +49,9 @@ DWORD cockpitTextureSartAddress = 0x00486b76;
 DWORD helmetTexture1StartAddress = 0x00486c07;
 DWORD helmetTexture2StartAddress = 0x00486c48;
 
+DWORD cockpitMirrorsSingleStartAddress = 0x00485e55;
+DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
+
 //Jump Back Addresses
 DWORD genericMeshJumpBackAddress = 0x0048710C;
 DWORD individualMeshJumpBackAddress = 0x0048708A;
@@ -56,6 +59,9 @@ DWORD defaultMeshJumpBackAddress = 0x004870C7;
 DWORD cockpitTextureJumpBackAddress = 0x00486b90;
 DWORD helmetTexture1JumpBackAddress = 0x00486c20;
 DWORD helmetTexture2JumpBackAddress = 0x00486c61;
+
+DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
+DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
 
 //Vars and Data Addresses
 DWORD trackIndex = 0x007AD894;
@@ -70,6 +76,11 @@ DWORD carsFolderStr = 0x00644ee4;
 //Function Addresses
 DWORD ReplaceWildCards = 0x005DB088;
 DWORD MeshFileExists = 0x0046af40;
+
+DWORD LoadCarRelatedMesh = 0x00486f60;
+DWORD UnkFunction1 = 0x00470d70;
+DWORD UnkFunction2 = 0x0045e770;
+DWORD UnkMaterialFunction = 0x00459290;
 
 //Storage Variables
 DWORD eaxVar, ecxVar, edxVar;
@@ -104,6 +115,7 @@ __declspec(naked) void saveVolatileRegisters() {
 		mov eaxVar, EAX
 		mov ecxVar, ECX
 		mov edxVar, EDX
+		ret
 	}
 }
 
@@ -113,6 +125,7 @@ __declspec(naked) void restoreVolatileRegisters() {
 		mov EAX, eaxVar
 		mov ECX, ecxVar
 		mov EDX, edxVar
+		ret
 	}
 }
 
@@ -513,6 +526,63 @@ __declspec(naked) void helmetTexture2PerTrack() {
 
 }
 
+__declspec(naked) void checkNullPointerSingleCockpitMirrors() {
+
+	//if 0x00a4d67c is null, skip to 0x00485e90, else continue to normal flow
+	__asm {
+		mov ECX, dword ptr[0x00a4d67c]
+		mov ECX, dword ptr[ECX]
+		mov ecxVar, ECX
+	}
+
+	//original instructions
+	__asm {
+		mov ECX, dword ptr[0x00a4fcc8]
+		mov ECX, dword ptr[ECX]
+	}
+
+	if (ecxVar == 0) {
+		cockpitMirrorsSingleJumpBackAddress = 0x00485e90;
+	}
+	__asm jmp cockpitMirrorsSingleJumpBackAddress //jump back
+}
+
+__declspec(naked) void applyCockpitMirrorsPerCar() {
+
+	__asm {
+		call LoadCarRelatedMesh
+	}
+
+	//copy of original code for mirrors, adapted for individual cars
+	__asm {
+		mov ECX, dword ptr[0x00a4fcc8]
+		mov ECX, dword ptr[ECX]
+		call UnkFunction1	//return EAX 0x0D
+		cmp EAX, -1
+		jz skip //0x00485e90
+		mov ECX, dword ptr[0x00a51f9c]
+		mov ECX, dword ptr[ECX]	//valid dynamic address
+		push EAX
+		call UnkFunction2	//return EAX 0x0320
+		cmp EAX, -1
+		jz skip //0x00485e90
+		//mov EDX, dword ptr[0x00a4d67c] //EDI?
+		mov EDX, dword ptr[EDI]
+		mov ECX, dword ptr[EDX + 0x58]
+		cmp ECX, -1
+		jz skip //0x00485e90
+		push 0x1
+		push EAX
+		push ECX
+		mov ECX, dword ptr[EDX + 0x4]
+		call UnkMaterialFunction
+	}
+
+skip:
+
+	__asm jmp cockpitMirrorsPerCarJumpBackAddress //jump back into regular flow
+}
+
 void RerouteFunction(DWORD jumpToAddress, DWORD targetFunction, string functionName = "")
 {
 	BYTE jmpCode[5] = { 0xe9, 0x0, 0x0, 0x0, 0x0 };
@@ -531,13 +601,25 @@ void RerouteFunction(DWORD jumpToAddress, DWORD targetFunction, string functionN
 	OutputDebugStringA(("Address of " + functionName + ": " + dwordToString(targetFunction) + "\n").c_str());
 
 	//Patch memory to jump
-	PatchAddress((LPVOID)jumpToAddress, (BYTE*)&jmpCode, sizeof(jmpCode));
+	PatchAddress((LPVOID)jumpToAddress, (LPBYTE)&jmpCode, sizeof(jmpCode));
 
 }
 
 DWORD WINAPI MainThread(LPVOID param) {
 
 	ostringstream outputString;
+
+	//Patch to jump original cockpit mirrors
+	//BYTE jmp[1] = { 0xeb };
+	//DWORD jmpAddress = 0x00485e63;
+
+	//PatchAddress((LPVOID)jmpAddress, (LPBYTE)&jmp, sizeof(jmp));
+	// 
+	//Re-route for cockpit mirrors 
+	RerouteFunction(cockpitMirrorsSingleStartAddress, PtrToUlong(checkNullPointerSingleCockpitMirrors), VAR_NAME(checkNullPointerSingleCockpitMirrors));
+
+	//Re-route for cockpit mirrors per car
+	RerouteFunction(cockpitMirrorsPerCarStartAddress, PtrToUlong(applyCockpitMirrorsPerCar), VAR_NAME(applyCockpitMirrorsPerCar));
 
 	//Re-route for generic meshes
 	RerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshPerTrack), VAR_NAME(genericMeshPerTrack));
