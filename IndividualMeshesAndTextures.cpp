@@ -1,45 +1,13 @@
+#include "GP4MemLib/GP4MemLib.h"
+#include "IniLib/IniLib.h"
 #include <iomanip>
 #include <malloc.h>
-#include <sstream>
 #include <string>
 #include <windows.h>
 
-#define VAR_NAME(var) (#var)
-
 using namespace std;
-
-string dwordToString(DWORD address) {
-
-	ostringstream outputString;
-
-	outputString.str(string());
-	outputString << "0x" << hex << setw(sizeof(DWORD) * 2) << setfill('0') << address;
-
-	return outputString.str();
-
-}
-
-string ptrToString(LPVOID address) {
-
-	return dwordToString(PtrToUlong(address));
-}
-
-void PatchAddress(LPVOID address, LPBYTE patch, SIZE_T size) {
-	DWORD oldProtect;
-
-	string addressString = ptrToString(address);
-
-	if (VirtualProtect(address, size, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-
-		memcpy(address, patch, size);
-		VirtualProtect(address, size, oldProtect, &oldProtect);
-
-		OutputDebugStringA(("Memory patched successfully at address " + addressString + "\n").c_str());
-	}
-	else {
-		OutputDebugStringA(("Error while patching address " + addressString + "\n").c_str());
-	}
-}
+using namespace GP4MemLib;
+using namespace IniLib;
 
 //Target Addresses
 DWORD genericMeshStartAddress = 0x00487100;
@@ -109,26 +77,6 @@ void prepFileNameString(DWORD& fileNameStr)
 	fileNameStr = PtrToUlong(textureFileName);
 }
 
-__declspec(naked) void saveVolatileRegisters() {
-
-	__asm { //save volatile registers
-		mov eaxVar, EAX
-		mov ecxVar, ECX
-		mov edxVar, EDX
-		ret
-	}
-}
-
-__declspec(naked) void restoreVolatileRegisters() {
-
-	__asm { //restore volatile registers
-		mov EAX, eaxVar
-		mov ECX, ecxVar
-		mov EDX, edxVar
-		ret
-	}
-}
-
 __declspec(naked) void genericMeshPerTrack() {
 
 	__asm { //load trackIndex and push into stack
@@ -146,7 +94,7 @@ __declspec(naked) void genericMeshPerTrack() {
 	}
 
 	//save volatile registers
-	saveVolatileRegisters();
+	RegUtils::saveVolatileRegisters();
 
 	__asm { //check if mesh exists
 		push 0
@@ -156,7 +104,7 @@ __declspec(naked) void genericMeshPerTrack() {
 	}
 
 	//restore volatile registers
-	restoreVolatileRegisters();
+	RegUtils::restoreVolatileRegisters();
 
 	//fall-back
 	if (meshNotExists)
@@ -303,7 +251,7 @@ __declspec(naked) void cockpitTexturePerTrack() {
 	}
 
 	//save volatile registers
-	saveVolatileRegisters();
+	RegUtils::saveVolatileRegisters();
 
 	__asm { //save filename from stack
 		mov EAX, dword ptr[ESP]
@@ -321,7 +269,7 @@ __declspec(naked) void cockpitTexturePerTrack() {
 	}
 
 	//restore volatile registers
-	restoreVolatileRegisters();
+	RegUtils::restoreVolatileRegisters();
 
 	//fall-back
 	if (meshNotExists)
@@ -386,7 +334,7 @@ __declspec(naked) void helmetTexture1PerTrack() {
 	}
 
 	//save volatile registers
-	saveVolatileRegisters();
+	RegUtils::saveVolatileRegisters();
 
 	__asm { //save filename from stack
 		mov EAX, dword ptr[ESP]
@@ -404,7 +352,7 @@ __declspec(naked) void helmetTexture1PerTrack() {
 	}
 
 	//restore volatile registers
-	restoreVolatileRegisters();
+	RegUtils::restoreVolatileRegisters();
 
 	//fall-back
 	if (meshNotExists)
@@ -466,7 +414,7 @@ __declspec(naked) void helmetTexture2PerTrack() {
 	}
 
 	//save volatile registers
-	saveVolatileRegisters();
+	RegUtils::saveVolatileRegisters();
 
 	__asm { //save filename from stack
 		mov EAX, dword ptr[ESP]
@@ -484,7 +432,7 @@ __declspec(naked) void helmetTexture2PerTrack() {
 	}
 
 	//restore volatile registers
-	restoreVolatileRegisters();
+	RegUtils::restoreVolatileRegisters();
 
 	//fall-back
 	if (meshNotExists)
@@ -583,52 +531,79 @@ skip:
 	__asm jmp cockpitMirrorsPerCarJumpBackAddress //jump back into regular flow
 }
 
-void RerouteFunction(DWORD jumpToAddress, DWORD targetFunction, string functionName = "")
-{
-	BYTE jmpCode[5] = { 0xe9, 0x0, 0x0, 0x0, 0x0 };
-
-	//Offset to jump into the re-routed function
-	DWORD jumpOffset = targetFunction - jumpToAddress - 5;
-
-	//append the jump offset to the jmp asm instruction code
-	memcpy(&jmpCode[1], &jumpOffset, sizeof(DWORD));
-
-	OutputDebugStringA(("Rerouting starting at address " + dwordToString(jumpToAddress) + "\n").c_str());
-
-	if (functionName == "")
-		functionName = "target function";
-
-	OutputDebugStringA(("Address of " + functionName + ": " + dwordToString(targetFunction) + "\n").c_str());
-
-	//Patch memory to jump
-	PatchAddress((LPVOID)jumpToAddress, (LPBYTE)&jmpCode, sizeof(jmpCode));
-
-}
-
 DWORD WINAPI MainThread(LPVOID param) {
 
-	ostringstream outputString;
+	IniFile iniSettings;
 
-	//Patch to jump original cockpit mirrors
-	//BYTE jmp[1] = { 0xeb };
-	//DWORD jmpAddress = 0x00485e63;
+	if (iniSettings.load("IndividualMeshesAndTextures.ini"))
+	{
 
-	//PatchAddress((LPVOID)jmpAddress, (LPBYTE)&jmp, sizeof(jmp));
-	// 
+		bool individualFrontWheelsEnabled = false;
+		try
+		{
+			individualFrontWheelsEnabled = iniSettings["IndividualMeshes"]["FrontWheels"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		string enabled = individualFrontWheelsEnabled ? "Enabled" : "Disabled";
+
+		OutputDebugStringA(("Individual Front Wheels: " + enabled + "\n").c_str());
+
+		bool individualRearWheelsEnabled = false;
+
+		try
+		{
+			individualRearWheelsEnabled = iniSettings["IndividualMeshes"]["RearWheels"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		enabled = individualRearWheelsEnabled ? "Enabled" : "Disabled";
+
+		OutputDebugStringA(("Individual Rear Wheels: " + enabled + "\n").c_str());
+
+		bool individualHelmetsEnabled = false;
+
+		try
+		{
+			individualHelmetsEnabled = iniSettings["IndividualMeshes"]["Helmets"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		enabled = individualHelmetsEnabled ? "Enabled" : "Disabled";
+
+		OutputDebugStringA(("Individual Helmets: " + enabled + "\n").c_str());
+
+		bool individualCockpitsEnabled = false;
+
+		try
+		{
+			individualCockpitsEnabled = iniSettings["IndividualMeshes"]["Cockpits"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		enabled = individualCockpitsEnabled ? "Enabled" : "Disabled";
+
+		OutputDebugStringA(("Individual Cockpits: " + enabled + "\n").c_str());
+	}
+	else
+	{
+		OutputDebugStringA("Failed to open INI file");
+	}
+
 	//Re-route for cockpit mirrors 
-	RerouteFunction(cockpitMirrorsSingleStartAddress, PtrToUlong(checkNullPointerSingleCockpitMirrors), VAR_NAME(checkNullPointerSingleCockpitMirrors));
+	MemUtils::rerouteFunction(cockpitMirrorsSingleStartAddress, PtrToUlong(checkNullPointerSingleCockpitMirrors), VAR_NAME(checkNullPointerSingleCockpitMirrors));
 
 	//Re-route for cockpit mirrors per car
-	RerouteFunction(cockpitMirrorsPerCarStartAddress, PtrToUlong(applyCockpitMirrorsPerCar), VAR_NAME(applyCockpitMirrorsPerCar));
+	MemUtils::rerouteFunction(cockpitMirrorsPerCarStartAddress, PtrToUlong(applyCockpitMirrorsPerCar), VAR_NAME(applyCockpitMirrorsPerCar));
 
 	//Re-route for generic meshes
-	RerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshPerTrack), VAR_NAME(genericMeshPerTrack));
+	MemUtils::rerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshPerTrack), VAR_NAME(genericMeshPerTrack));
 
 	//Re-route for individual meshes
-	RerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshPerTrack), VAR_NAME(individualMeshPerTrack));
+	MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshPerTrack), VAR_NAME(individualMeshPerTrack));
 
 	//Re-route for default meshes
-	RerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
+	MemUtils::rerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
 
 	//Allocate memory for new file name string
 	char* cockpitTextureFileName = (char*)VirtualAlloc(NULL, 256, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -640,7 +615,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 		cockpitTexture = PtrToUlong(cockpitTextureFileName);
 
 		//Re-route for cockpit textures
-		RerouteFunction(cockpitTextureSartAddress, PtrToUlong(cockpitTexturePerTrack), VAR_NAME(cockpitTexturePerTrack));
+		MemUtils::rerouteFunction(cockpitTextureSartAddress, PtrToUlong(cockpitTexturePerTrack), VAR_NAME(cockpitTexturePerTrack));
 	}
 
 	//Allocate memory for new file name string
@@ -653,7 +628,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 		helmetTexture1 = PtrToUlong(helmetTexture1FileName);
 
 		//Re-route for helmet texture 1
-		RerouteFunction(helmetTexture1StartAddress, PtrToUlong(helmetTexture1PerTrack), VAR_NAME(helmetTexture1PerTrack));
+		MemUtils::rerouteFunction(helmetTexture1StartAddress, PtrToUlong(helmetTexture1PerTrack), VAR_NAME(helmetTexture1PerTrack));
 	}
 
 	//Allocate memory for new file name string
@@ -666,7 +641,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 		helmetTexture2 = PtrToUlong(helmetTexture2FileName);
 
 		//Re-route for helmet texture 2
-		RerouteFunction(helmetTexture2StartAddress, PtrToUlong(helmetTexture2PerTrack), VAR_NAME(helmetTexture2PerTrack));
+		MemUtils::rerouteFunction(helmetTexture2StartAddress, PtrToUlong(helmetTexture2PerTrack), VAR_NAME(helmetTexture2PerTrack));
 	}
 
 	return 0;
