@@ -10,6 +10,12 @@ using namespace GP4MemLib;
 using namespace IniLib;
 
 //Target Addresses
+DWORD individualFrontWheelsAddress = 0x64428C;
+DWORD individualRearWheelsAddress = 0x64428D;
+DWORD individualHelmetsAddress = 0x64428E;
+DWORD individualCockpitsAddress = 0x64428F;
+DWORD individualCarsAddress = 0x644290;
+
 DWORD genericMeshStartAddress = 0x00487100;
 DWORD individualMeshStartAddress = 0x00487059;
 DWORD defaultMeshStartAddress = 0x004870A3;
@@ -537,7 +543,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	if (iniSettings.load("IndividualMeshesAndTextures.ini"))
 	{
-
+		//Enable/Disable Individual Meshes for Front Wheels
 		bool individualFrontWheelsEnabled = false;
 		try
 		{
@@ -546,6 +552,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 		catch (exception ex) {}
 
 		string enabled = individualFrontWheelsEnabled ? "Enabled" : "Disabled";
+
+		MemUtils::patchAddress((LPVOID)individualFrontWheelsAddress, MemUtils::toBytes(!individualFrontWheelsEnabled), sizeof(bool));
 
 		OutputDebugStringA(("Individual Front Wheels: " + enabled + "\n").c_str());
 
@@ -559,6 +567,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 		enabled = individualRearWheelsEnabled ? "Enabled" : "Disabled";
 
+		MemUtils::patchAddress((LPVOID)individualRearWheelsAddress, MemUtils::toBytes(!individualRearWheelsEnabled), sizeof(bool));
+
 		OutputDebugStringA(("Individual Rear Wheels: " + enabled + "\n").c_str());
 
 		bool individualHelmetsEnabled = false;
@@ -571,6 +581,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 		enabled = individualHelmetsEnabled ? "Enabled" : "Disabled";
 
+		MemUtils::patchAddress((LPVOID)individualHelmetsAddress, MemUtils::toBytes(!individualHelmetsEnabled), sizeof(bool));
+
 		OutputDebugStringA(("Individual Helmets: " + enabled + "\n").c_str());
 
 		bool individualCockpitsEnabled = false;
@@ -582,6 +594,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 		catch (exception ex) {}
 
 		enabled = individualCockpitsEnabled ? "Enabled" : "Disabled";
+
+		MemUtils::patchAddress((LPVOID)individualCockpitsAddress, MemUtils::toBytes(!individualCockpitsEnabled), sizeof(bool));
 
 		OutputDebugStringA(("Individual Cockpits: " + enabled + "\n").c_str());
 	}
