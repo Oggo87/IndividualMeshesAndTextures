@@ -9,12 +9,22 @@ using namespace std;
 using namespace GP4MemLib;
 using namespace IniLib;
 
+enum MESH_ID
+{
+	FRONT_WHEELS,
+	REAR_WHEELS,
+	HELMETS,
+	COCKPITS,
+	CARS
+};
+
+string meshNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars" };
+string meshIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars" };
+
 //Target Addresses
-DWORD individualFrontWheelsAddress = 0x64428C;
-DWORD individualRearWheelsAddress = 0x64428D;
-DWORD individualHelmetsAddress = 0x64428E;
-DWORD individualCockpitsAddress = 0x64428F;
-DWORD individualCarsAddress = 0x644290;
+DWORD individualMeshesAddress = 0x0064428C;
+DWORD lodsPerMeshAddress = 0x00644294;
+DWORD lodTableAddress = 0x006442A8;
 
 DWORD genericMeshStartAddress = 0x00487100;
 DWORD individualMeshStartAddress = 0x00487059;
@@ -539,69 +549,93 @@ skip:
 
 DWORD WINAPI MainThread(LPVOID param) {
 
+
+	ostringstream messageBuilder;
+
+	//Get the DLL path and use it to load the ini file
+	char currentPath[MAX_PATH];
+	HMODULE dllHandle = GetModuleHandleA("IndividualMeshesAndTextures.dll");
+	GetModuleFileNameA(dllHandle, currentPath, MAX_PATH);
+	size_t pos = string(currentPath).find_last_of("\\/");
+	string iniFilePath = string(currentPath).substr(0, pos) + "\\IndividualMeshesAndTextures.ini";
+
 	IniFile iniSettings;
 
-	if (iniSettings.load("IndividualMeshesAndTextures.ini"))
+	if (iniSettings.load(iniFilePath))
 	{
-		//Enable/Disable Individual Meshes for Front Wheels
-		bool individualFrontWheelsEnabled = false;
+		//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
+		bool individualMeshesEnabled[] = { false, false, false, false, true };
 
-		try
+		for (int i = 0; i < 4; i++)
 		{
-			individualFrontWheelsEnabled = iniSettings["IndividualMeshes"]["FrontWheels"].getAs<bool>();
+			try
+			{
+				individualMeshesEnabled[i] = iniSettings["IndividualMeshes"][meshIDs[i]].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			string enabled = individualMeshesEnabled[i] ? "Enabled" : "Disabled";
+
+			MemUtils::patchAddress((LPVOID)(individualMeshesAddress + i), MemUtils::toBytes(!individualMeshesEnabled[i]), sizeof(bool));
+
+			OutputDebugStringA(("Individual " + meshNames[i] + ": " + enabled + "\n").c_str());
+
 		}
-		catch (exception ex) {}
 
-		string enabled = individualFrontWheelsEnabled ? "Enabled" : "Disabled";
-
-		MemUtils::patchAddress((LPVOID)individualFrontWheelsAddress, MemUtils::toBytes(!individualFrontWheelsEnabled), sizeof(bool));
-
-		OutputDebugStringA(("Individual Front Wheels: " + enabled + "\n").c_str());
-
-		//Enable/Disable Individual Meshes for Rear Wheels
-		bool individualRearWheelsEnabled = false;
-
-		try
+		//Patch LOD Table
+		for (int i = 0; i < 5; i++)
 		{
-			individualRearWheelsEnabled = iniSettings["IndividualMeshes"]["RearWheels"].getAs<bool>();
+			//Check if LOD 0 Only is enabled
+			bool lod0Only[] = { false, false, false, false, false };
+			try
+			{
+				lod0Only[i] = iniSettings[meshNames[i]]["LOD0Only"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			string enabled = lod0Only[i] ? "Enabled" : "Disabled";
+
+			OutputDebugStringA(("LOD 0 Only " + meshNames[i] + ": " + enabled + "\n").c_str());
+
+			vector<int> lodEntries;
+
+			//If not LOD 0 Only, read LOD Table
+			if (!lod0Only[i])
+			{
+				try
+				{
+					lodEntries = iniSettings["LOD Table"][meshIDs[i]].getVectorAs<int>();
+				}
+				catch (exception ex) {}
+
+				messageBuilder.str(std::string());
+
+				messageBuilder << "LOD Table for " + meshNames[i] + ": ";
+
+				for (int j = 0; j < lodEntries.size(); j++)
+				{
+					messageBuilder << lodEntries[j] << ", ";
+				}
+				
+				messageBuilder << "\n";
+
+				OutputDebugStringA(messageBuilder.str().c_str());
+			}
+
+			//Fill with 0s if vector is too short
+			while (lodEntries.size() < 5)
+			{
+				lodEntries.push_back(0);
+			}
+
+			//Calculate LODs per Mesh
+
+			//Patch lodsPerMeshAddress
+
+			//Patch lodTableAddress (backwards)
+
 		}
-		catch (exception ex) {}
 
-		enabled = individualRearWheelsEnabled ? "Enabled" : "Disabled";
-
-		MemUtils::patchAddress((LPVOID)individualRearWheelsAddress, MemUtils::toBytes(!individualRearWheelsEnabled), sizeof(bool));
-
-		OutputDebugStringA(("Individual Rear Wheels: " + enabled + "\n").c_str());
-
-		//Enable/Disable Individual Meshes for Helmets
-		bool individualHelmetsEnabled = false;
-
-		try
-		{
-			individualHelmetsEnabled = iniSettings["IndividualMeshes"]["Helmets"].getAs<bool>();
-		}
-		catch (exception ex) {}
-
-		enabled = individualHelmetsEnabled ? "Enabled" : "Disabled";
-
-		MemUtils::patchAddress((LPVOID)individualHelmetsAddress, MemUtils::toBytes(!individualHelmetsEnabled), sizeof(bool));
-
-		OutputDebugStringA(("Individual Helmets: " + enabled + "\n").c_str());
-
-		//Enable/Disable Individual Meshes for Cockpits
-		bool individualCockpitsEnabled = false;
-
-		try
-		{
-			individualCockpitsEnabled = iniSettings["IndividualMeshes"]["Cockpits"].getAs<bool>();
-		}
-		catch (exception ex) {}
-
-		enabled = individualCockpitsEnabled ? "Enabled" : "Disabled";
-
-		MemUtils::patchAddress((LPVOID)individualCockpitsAddress, MemUtils::toBytes(!individualCockpitsEnabled), sizeof(bool));
-
-		OutputDebugStringA(("Individual Cockpits: " + enabled + "\n").c_str());
 	}
 	else
 	{
