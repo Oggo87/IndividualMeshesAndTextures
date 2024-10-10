@@ -566,58 +566,59 @@ DWORD WINAPI MainThread(LPVOID param) {
 		//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
 		bool individualMeshesEnabled[] = { false, false, false, false, true };
 
-		for (int i = 0; i < 4; i++)
+		for (int meshIndex = 0; meshIndex < 4; meshIndex++)
 		{
 			try
 			{
-				individualMeshesEnabled[i] = iniSettings["IndividualMeshes"][meshIDs[i]].getAs<bool>();
+				individualMeshesEnabled[meshIndex] = iniSettings["IndividualMeshes"][meshIDs[meshIndex]].getAs<bool>();
 			}
 			catch (exception ex) {}
 
-			string enabled = individualMeshesEnabled[i] ? "Enabled" : "Disabled";
+			string enabled = individualMeshesEnabled[meshIndex] ? "Enabled" : "Disabled";
 
-			MemUtils::patchAddress((LPVOID)(individualMeshesAddress + i), MemUtils::toBytes(!individualMeshesEnabled[i]), sizeof(bool));
+			MemUtils::patchAddress((LPVOID)(individualMeshesAddress + meshIndex), MemUtils::toBytes(!individualMeshesEnabled[meshIndex]), sizeof(bool));
 
-			OutputDebugStringA(("Individual " + meshNames[i] + ": " + enabled + "\n").c_str());
+			OutputDebugStringA(("Individual " + meshNames[meshIndex] + ": " + enabled + "\n").c_str());
 
 		}
 
 		//Patch LOD Table
-		for (int i = 0; i < 5; i++)
+		for (int meshIndex = 0; meshIndex < 5; meshIndex++)
 		{
 			//Check if LOD 0 Only is enabled
 			bool lod0Only[] = { false, false, false, false, false };
 			try
 			{
-				lod0Only[i] = iniSettings[meshNames[i]]["LOD0Only"].getAs<bool>();
+				lod0Only[meshIndex] = iniSettings[meshIDs[meshIndex]]["LOD0Only"].getAs<bool>();
 			}
 			catch (exception ex) {}
 
-			string enabled = lod0Only[i] ? "Enabled" : "Disabled";
+			string enabled = lod0Only[meshIndex] ? "Enabled" : "Disabled";
 
-			OutputDebugStringA(("LOD 0 Only " + meshNames[i] + ": " + enabled + "\n").c_str());
+			OutputDebugStringA(("LOD 0 Only " + meshNames[meshIndex] + ": " + enabled + "\n").c_str());
 
 			vector<int> lodEntries;
 
 			//If not LOD 0 Only, read LOD Table
-			if (!lod0Only[i])
+			if (!lod0Only[meshIndex])
 			{
 				try
 				{
-					lodEntries = iniSettings["LOD Table"][meshIDs[i]].getVectorAs<int>();
+					lodEntries = iniSettings["LODTable"][meshIDs[meshIndex]].getVectorAs<int>();
 				}
 				catch (exception ex) {}
 
 				messageBuilder.str(std::string());
 
-				messageBuilder << "LOD Table for " + meshNames[i] + ": ";
+				messageBuilder << "LOD Table for " + meshNames[meshIndex] + ": ";
 
-				for (int j = 0; j < lodEntries.size(); j++)
+				for (unsigned int lodIndex = 0; lodIndex < lodEntries.size(); lodIndex++)
 				{
-					messageBuilder << lodEntries[j] << ", ";
+					if (lodIndex > 0)
+						messageBuilder << ", ";
+
+					messageBuilder << lodEntries[lodIndex];
 				}
-				
-				messageBuilder << "\n";
 
 				OutputDebugStringA(messageBuilder.str().c_str());
 			}
@@ -629,10 +630,22 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 
 			//Calculate LODs per Mesh
+			int nLods = 1;
+			for (; lodEntries[nLods] > 0 && nLods < 5; nLods++);
 
-			//Patch lodsPerMeshAddress
+			messageBuilder.str(std::string());
 
-			//Patch lodTableAddress (backwards)
+			messageBuilder << "Number LODs for " << meshNames[meshIndex] << ": " << nLods;
+
+			OutputDebugStringA(messageBuilder.str().c_str());
+
+			//Patch Number of LODs per Mesh
+			MemUtils::patchAddress((LPVOID)(lodsPerMeshAddress + meshIndex * sizeof(int)), MemUtils::toBytes(nLods), sizeof(int));
+
+			//Patch LOD Table entries
+			DWORD tableEntryAddress = lodTableAddress + (meshIndex * sizeof(int) * lodEntries.size());
+
+			MemUtils::patchAddress((LPVOID)tableEntryAddress, MemUtils::toBytes(lodEntries[0]), sizeof(int) * lodEntries.size());
 
 		}
 
