@@ -18,13 +18,27 @@ enum MESH_ID
 	CARS
 };
 
+enum TEXTURE_ID
+{
+	HELMET_2,
+	HELMET_1,
+	COCKPIT
+};
+
 string meshNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars" };
 string meshIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars" };
+string meshDefaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d" };
+string meshFilePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car" };
+
+string textureNames[] = { "Helmet 2", "Helmet 1", "Cockpit" };
+string textureDefaultFileNames[] = { "Driver%d_2.tga", "Driver%d_1.tga", "cp_%s.tga" };
+string textureFilePartialNames[] = { "Driver", "Driver", "cp" };
 
 //Target Addresses
 DWORD individualMeshesAddress = 0x0064428C;
 DWORD lodsPerMeshAddress = 0x00644294;
 DWORD lodTableAddress = 0x006442A8;
+DWORD meshFileNamesTable = 0x00644390;
 
 DWORD genericMeshStartAddress = 0x00487100;
 DWORD individualMeshStartAddress = 0x00487059;
@@ -565,6 +579,13 @@ DWORD WINAPI MainThread(LPVOID param) {
 	{
 		//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
 		bool individualMeshesEnabled[] = { false, false, false, false, true };
+		bool perTeam[] = { false, false, false, false, false };
+		bool perDriver[] = { false, false, false, false, true };
+		bool perTrack[] = { false, false, false, false, false };
+
+		//Arrays of mesh and textures filenames
+		string meshFileNames[5];
+		string textureFileNames[3];
 
 		for (int meshIndex = 0; meshIndex < 4; meshIndex++)
 		{
@@ -574,15 +595,12 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			string enabled = individualMeshesEnabled[meshIndex] ? "Enabled" : "Disabled";
-
 			MemUtils::patchAddress((LPVOID)(individualMeshesAddress + meshIndex), MemUtils::toBytes(!individualMeshesEnabled[meshIndex]), sizeof(bool));
 
-			OutputDebugStringA(("Individual " + meshNames[meshIndex] + ": " + enabled + "\n").c_str());
+			OutputDebugStringA(("Individual " + meshNames[meshIndex] + ": " + (individualMeshesEnabled[meshIndex] ? "Enabled" : "Disabled")).c_str());
 
 		}
 
-		//Patch LOD Table
 		for (int meshIndex = 0; meshIndex < 5; meshIndex++)
 		{
 			//Check if LOD 0 Only is enabled
@@ -593,9 +611,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			string enabled = lod0Only[meshIndex] ? "Enabled" : "Disabled";
-
-			OutputDebugStringA(("LOD 0 Only " + meshNames[meshIndex] + ": " + enabled + "\n").c_str());
+			OutputDebugStringA(("LOD 0 Only " + meshNames[meshIndex] + ": " + (lod0Only[meshIndex] ? "Enabled" : "Disabled")).c_str());
 
 			vector<int> lodEntries;
 
@@ -647,7 +663,139 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 			MemUtils::patchAddress((LPVOID)tableEntryAddress, MemUtils::toBytes(lodEntries[0]), sizeof(int) * lodEntries.size());
 
+			//Check if AutoName
+			bool autoName = false;
+
+			try
+			{
+				autoName = iniSettings[meshIDs[meshIndex]]["AutoName"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("AutoName " + meshNames[meshIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+
+			// Compute file name
+			if (autoName)
+			{
+				try
+				{
+					perTeam[meshIndex] = iniSettings[meshIDs[meshIndex]]["PerTeam"].getAs<bool>();
+				}
+				catch (exception ex) {}
+
+				try
+				{
+					perDriver[meshIndex] = iniSettings[meshIDs[meshIndex]]["PerDriver"].getAs<bool>();
+				}
+				catch (exception ex) {}
+
+				try
+				{
+					perTrack[meshIndex] = iniSettings[meshIDs[meshIndex]]["PerTrack"].getAs<bool>();
+				}
+				catch (exception ex) {}
+
+				ostringstream fileNameBuilder;
+
+				fileNameBuilder << "car_";
+
+				if (perTeam[meshIndex] || perDriver[meshIndex])
+				{
+					fileNameBuilder << "%s_";
+				}
+
+				fileNameBuilder << meshFilePartialNames[meshIndex] << (perDriver[meshIndex] ? "%d":"") << "_";
+
+				if (meshIndex > 1 && meshIndex < 4)
+				{
+					fileNameBuilder << "%02d";
+				}
+				else
+				{
+					fileNameBuilder << "LOD_%d";
+				}
+
+				if (perTrack[meshIndex])
+				{
+					fileNameBuilder << "_track_%d";
+				}
+
+				meshFileNames[meshIndex] = fileNameBuilder.str().c_str();
+
+				OutputDebugStringA(("File name computed for " + meshNames[meshIndex] + ": " + meshFileNames[meshIndex]).c_str());
+			}
+			else //If not, load the specified file name
+			{
+				try
+				{
+					meshFileNames[meshIndex] = iniSettings[meshIDs[meshIndex]]["FileName"].getAs<string>();
+				}
+				catch (exception ex) {}
+
+				OutputDebugStringA(("File name loaded for " + meshNames[meshIndex] + ": " + meshFileNames[meshIndex]).c_str());
+			}
+
+			//Fall back to default name
+			if (meshFileNames[meshIndex].empty())
+			{
+				meshFileNames[meshIndex] = meshDefaultFileNames[meshIndex];
+
+				OutputDebugStringA(("Reverting to default file name for " + meshNames[meshIndex] + ": " + meshFileNames[meshIndex]).c_str());
+			}
+
 		}
+
+		//Check if AutoName for Helmet Textures
+		bool autoName = false;
+
+		try
+		{
+			autoName = iniSettings["HelmetTextures"]["AutoName"].getAs<bool>();
+		}
+		catch (exception ex) {}
+		
+		OutputDebugStringA(("AutoName Helmet Textures: " + string(autoName ? "Enabled" : "Disabled")).c_str());
+
+		// Compute file name
+		if (autoName)
+		{
+			//TODO
+		}
+		else //If not, load the specified file name
+		{
+			try
+			{
+				textureFileNames[HELMET_1] = iniSettings["HelmetTextures"]["FileName1"].getAs<string>();
+			}
+			catch (exception ex) {}
+
+			try
+			{
+				textureFileNames[HELMET_2] = iniSettings["HelmetTextures"]["FileName2"].getAs<string>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("File names loaded for Helmet Textures: " + textureFileNames[HELMET_1] + ", " + textureFileNames[HELMET_2]).c_str());
+		}
+
+		//Fall back to default name
+		if (textureFileNames[HELMET_1].empty())
+		{
+			textureFileNames[HELMET_1] = textureDefaultFileNames[HELMET_1];
+
+			OutputDebugStringA(("Reverting to default file name for " + textureNames[HELMET_1] + ": " + textureFileNames[HELMET_1]).c_str());
+		}
+		if (textureFileNames[HELMET_2].empty())
+		{
+			textureFileNames[HELMET_2] = textureDefaultFileNames[HELMET_2];
+
+			OutputDebugStringA(("Reverting to default file name for " + textureNames[HELMET_2] + ": " + textureFileNames[HELMET_2]).c_str());
+		}
+
+
+		// Driver% d_2.tga
+		// Driver% d_1.tga
+		// cp_% s.tga
 
 	}
 	else
