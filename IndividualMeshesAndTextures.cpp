@@ -9,30 +9,23 @@ using namespace std;
 using namespace GP4MemLib;
 using namespace IniLib;
 
-enum MESH_ID
+enum ASSET_ID
 {
 	FRONT_WHEELS,
 	REAR_WHEELS,
 	HELMETS,
 	COCKPITS,
-	CARS
-};
-
-enum TEXTURE_ID
-{
+	CARS,
 	HELMET_2,
 	HELMET_1,
 	COCKPIT
 };
 
-string meshNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars" };
-string meshIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars" };
-string meshDefaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d" };
-string meshFilePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car" };
-
-string textureNames[] = { "Helmet 2", "Helmet 1", "Cockpit" };
-string textureDefaultFileNames[] = { "Driver%d_2.tga", "Driver%d_1.tga", "cp_%s.tga" };
-string textureFilePartialNames[] = { "Driver", "Driver", "cp" };
+string assetNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars", "Helmet 2", "Helmet 1", "Cockpit" };
+string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures"};
+string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d", "Driver%d_2.tga", "Driver%d_1.tga", "cp_%s.tga" };
+string newFormatDefaultFileNames[] = {"CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tga", "Driver{driver}_1.tga", "cp_{teamname}.tga"};
+string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
 
 //Target Addresses
 DWORD individualMeshesAddress = 0x0064428C;
@@ -563,8 +556,16 @@ skip:
 
 DWORD WINAPI MainThread(LPVOID param) {
 
-
+	//Utility string builders
 	ostringstream messageBuilder;
+	ostringstream fileNameBuilder;
+
+	//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
+	bool individualMeshesEnabled[] = { false, false, false, false, true };
+	bool lod0Only[] = { false, false, false, false, false };
+	bool perTeam[] = { false, false, false, false, false, false, false, true };
+	bool perDriver[] = { false, false, false, false, true, true, true, false };
+	bool perTrack[] = { false, false, false, false, false, false, false, false };
 
 	//Get the DLL path and use it to load the ini file
 	char currentPath[MAX_PATH];
@@ -577,225 +578,194 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	if (iniSettings.load(iniFilePath))
 	{
-		//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
-		bool individualMeshesEnabled[] = { false, false, false, false, true };
-		bool perTeam[] = { false, false, false, false, false };
-		bool perDriver[] = { false, false, false, false, true };
-		bool perTrack[] = { false, false, false, false, false };
 
-		//Arrays of mesh and textures filenames
-		string meshFileNames[5];
-		string textureFileNames[3];
+		//Array of mesh and textures filenames
+		string fileNames[8];
 
-		for (int meshIndex = 0; meshIndex < 4; meshIndex++)
+		for (int assetIndex = 0; assetIndex < 8; assetIndex++)
 		{
-			try
-			{
-				individualMeshesEnabled[meshIndex] = iniSettings["IndividualMeshes"][meshIDs[meshIndex]].getAs<bool>();
-			}
-			catch (exception ex) {}
 
-			MemUtils::patchAddress((LPVOID)(individualMeshesAddress + meshIndex), MemUtils::toBytes(!individualMeshesEnabled[meshIndex]), sizeof(bool));
-
-			OutputDebugStringA(("Individual " + meshNames[meshIndex] + ": " + (individualMeshesEnabled[meshIndex] ? "Enabled" : "Disabled")).c_str());
-
-		}
-
-		for (int meshIndex = 0; meshIndex < 5; meshIndex++)
-		{
-			//Check if LOD 0 Only is enabled
-			bool lod0Only[] = { false, false, false, false, false };
-			try
-			{
-				lod0Only[meshIndex] = iniSettings[meshIDs[meshIndex]]["LOD0Only"].getAs<bool>();
-			}
-			catch (exception ex) {}
-
-			OutputDebugStringA(("LOD 0 Only " + meshNames[meshIndex] + ": " + (lod0Only[meshIndex] ? "Enabled" : "Disabled")).c_str());
-
-			vector<int> lodEntries;
-
-			//If not LOD 0 Only, read LOD Table
-			if (!lod0Only[meshIndex])
+			if (assetIndex < 4)
 			{
 				try
 				{
-					lodEntries = iniSettings["LODTable"][meshIDs[meshIndex]].getVectorAs<int>();
+					individualMeshesEnabled[assetIndex] = iniSettings["IndividualMeshes"][assetIDs[assetIndex]].getAs<bool>();
 				}
 				catch (exception ex) {}
 
-				messageBuilder.str(std::string());
+				MemUtils::patchAddress((LPVOID)(individualMeshesAddress + assetIndex), MemUtils::toBytes(!individualMeshesEnabled[assetIndex]), sizeof(bool));
 
-				messageBuilder << "LOD Table for " + meshNames[meshIndex] + ": ";
+				OutputDebugStringA(("Individual " + assetNames[assetIndex] + ": " + (individualMeshesEnabled[assetIndex] ? "Enabled" : "Disabled")).c_str());
+			}
 
-				for (unsigned int lodIndex = 0; lodIndex < lodEntries.size(); lodIndex++)
+			if (assetIndex < 5)
+			{
+				//Check if LOD 0 Only is enabled
+				try
 				{
-					if (lodIndex > 0)
-						messageBuilder << ", ";
+					lod0Only[assetIndex] = iniSettings[assetIDs[assetIndex]]["LOD0Only"].getAs<bool>();
+				}
+				catch (exception ex) {}
 
-					messageBuilder << lodEntries[lodIndex];
+				OutputDebugStringA(("LOD 0 Only " + assetNames[assetIndex] + ": " + (lod0Only[assetIndex] ? "Enabled" : "Disabled")).c_str());
+
+				vector<int> lodEntries;
+
+				//If not LOD 0 Only, read LOD Table
+				if (!lod0Only[assetIndex])
+				{
+					try
+					{
+						lodEntries = iniSettings["LODTable"][assetIDs[assetIndex]].getVectorAs<int>();
+					}
+					catch (exception ex) {}
+
+					messageBuilder.str(std::string());
+
+					messageBuilder << "LOD Table for " + assetNames[assetIndex] + ": ";
+
+					for (unsigned int lodIndex = 0; lodIndex < lodEntries.size(); lodIndex++)
+					{
+						if (lodIndex > 0)
+							messageBuilder << ", ";
+
+						messageBuilder << lodEntries[lodIndex];
+					}
+
+					OutputDebugStringA(messageBuilder.str().c_str());
 				}
 
+				//Fill with 0s if vector is too short
+				while (lodEntries.size() < 5)
+				{
+					lodEntries.push_back(0);
+				}
+
+				//Calculate LODs per Mesh
+				int nLods = 1;
+				for (; lodEntries[nLods] > 0 && nLods < 5; nLods++);
+
+				messageBuilder.str(string());
+
+				messageBuilder << "Number LODs for " << assetNames[assetIndex] << ": " << nLods;
+
 				OutputDebugStringA(messageBuilder.str().c_str());
+
+				//Patch Number of LODs per Mesh
+				MemUtils::patchAddress((LPVOID)(lodsPerMeshAddress + assetIndex * sizeof(int)), MemUtils::toBytes(nLods), sizeof(int));
+
+				//Patch LOD Table entries
+				DWORD tableEntryAddress = lodTableAddress + (assetIndex * sizeof(int) * lodEntries.size());
+
+				MemUtils::patchAddress((LPVOID)tableEntryAddress, MemUtils::toBytes(lodEntries[0]), sizeof(int) * lodEntries.size());
 			}
-
-			//Fill with 0s if vector is too short
-			while (lodEntries.size() < 5)
-			{
-				lodEntries.push_back(0);
-			}
-
-			//Calculate LODs per Mesh
-			int nLods = 1;
-			for (; lodEntries[nLods] > 0 && nLods < 5; nLods++);
-
-			messageBuilder.str(std::string());
-
-			messageBuilder << "Number LODs for " << meshNames[meshIndex] << ": " << nLods;
-
-			OutputDebugStringA(messageBuilder.str().c_str());
-
-			//Patch Number of LODs per Mesh
-			MemUtils::patchAddress((LPVOID)(lodsPerMeshAddress + meshIndex * sizeof(int)), MemUtils::toBytes(nLods), sizeof(int));
-
-			//Patch LOD Table entries
-			DWORD tableEntryAddress = lodTableAddress + (meshIndex * sizeof(int) * lodEntries.size());
-
-			MemUtils::patchAddress((LPVOID)tableEntryAddress, MemUtils::toBytes(lodEntries[0]), sizeof(int) * lodEntries.size());
 
 			//Check if AutoName
 			bool autoName = false;
 
 			try
 			{
-				autoName = iniSettings[meshIDs[meshIndex]]["AutoName"].getAs<bool>();
+				autoName = iniSettings[assetIDs[assetIndex]]["AutoName"].getAs<bool>();
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("AutoName " + meshNames[meshIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("AutoName " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
 
 			// Compute file name
 			if (autoName)
 			{
 				try
 				{
-					perTeam[meshIndex] = iniSettings[meshIDs[meshIndex]]["PerTeam"].getAs<bool>();
+					perTeam[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerTeam"].getAs<bool>();
 				}
 				catch (exception ex) {}
 
 				try
 				{
-					perDriver[meshIndex] = iniSettings[meshIDs[meshIndex]]["PerDriver"].getAs<bool>();
+					perDriver[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerDriver"].getAs<bool>();
 				}
 				catch (exception ex) {}
 
 				try
 				{
-					perTrack[meshIndex] = iniSettings[meshIDs[meshIndex]]["PerTrack"].getAs<bool>();
+					perTrack[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerTrack"].getAs<bool>();
 				}
 				catch (exception ex) {}
 
-				ostringstream fileNameBuilder;
+				fileNameBuilder.str(string());
 
-				fileNameBuilder << "car_";
-
-				if (perTeam[meshIndex] || perDriver[meshIndex])
+				if(assetIndex < 5)
 				{
-					fileNameBuilder << "%s_";
-				}
+					fileNameBuilder << "car_";
 
-				fileNameBuilder << meshFilePartialNames[meshIndex] << (perDriver[meshIndex] ? "%d":"") << "_";
+					if (perTeam[assetIndex] || perDriver[assetIndex])
+					{
+						fileNameBuilder << "%s_";
+					}
 
-				if (meshIndex > 1 && meshIndex < 4)
-				{
-					fileNameBuilder << "%02d";
+					fileNameBuilder << filePartialNames[assetIndex] << (perDriver[assetIndex] ? "%d" : "") << "_";
+
+					if (assetIndex > 1 && assetIndex < 4)
+					{
+						fileNameBuilder << "%02d";
+					}
+					else
+					{
+						fileNameBuilder << "LOD_%d";
+					}
+
+					if (perTrack[assetIndex])
+					{
+						fileNameBuilder << "_track_%d";
+					}
 				}
 				else
 				{
-					fileNameBuilder << "LOD_%d";
+					fileNameBuilder << filePartialNames[assetIndex];
+
+					if (perTeam[assetIndex])
+					{
+						fileNameBuilder << "_%s";
+					}
+					if (perDriver[assetIndex])
+					{
+						fileNameBuilder << "%d";
+					}
+					if (perTrack[assetIndex])
+					{
+						fileNameBuilder << "_track_%d";
+					}
+					if(assetIndex < 7)
+					{
+						fileNameBuilder << "_" << 7 - assetIndex;
+					}
+					fileNameBuilder << ".tga";
 				}
 
-				if (perTrack[meshIndex])
-				{
-					fileNameBuilder << "_track_%d";
-				}
+				fileNames[assetIndex] = fileNameBuilder.str().c_str();
 
-				meshFileNames[meshIndex] = fileNameBuilder.str().c_str();
-
-				OutputDebugStringA(("File name computed for " + meshNames[meshIndex] + ": " + meshFileNames[meshIndex]).c_str());
+				OutputDebugStringA(("File name computed for " + assetNames[assetIndex] + ": " + fileNames[assetIndex]).c_str());
 			}
 			else //If not, load the specified file name
 			{
 				try
 				{
-					meshFileNames[meshIndex] = iniSettings[meshIDs[meshIndex]]["FileName"].getAs<string>();
+					fileNames[assetIndex] = iniSettings[assetIDs[assetIndex]]["FileName"].getAs<string>();
 				}
 				catch (exception ex) {}
 
-				OutputDebugStringA(("File name loaded for " + meshNames[meshIndex] + ": " + meshFileNames[meshIndex]).c_str());
+				OutputDebugStringA(("File name loaded for " + assetNames[assetIndex] + ": " + fileNames[assetIndex]).c_str());
 			}
 
 			//Fall back to default name
-			if (meshFileNames[meshIndex].empty())
+			if (fileNames[assetIndex].empty())
 			{
-				meshFileNames[meshIndex] = meshDefaultFileNames[meshIndex];
+				fileNames[assetIndex] = defaultFileNames[assetIndex];
 
-				OutputDebugStringA(("Reverting to default file name for " + meshNames[meshIndex] + ": " + meshFileNames[meshIndex]).c_str());
+				OutputDebugStringA(("Reverting to default file name for " + assetNames[assetIndex] + ": " + fileNames[assetIndex]).c_str());
 			}
 
 		}
-
-		//Check if AutoName for Helmet Textures
-		bool autoName = false;
-
-		try
-		{
-			autoName = iniSettings["HelmetTextures"]["AutoName"].getAs<bool>();
-		}
-		catch (exception ex) {}
-		
-		OutputDebugStringA(("AutoName Helmet Textures: " + string(autoName ? "Enabled" : "Disabled")).c_str());
-
-		// Compute file name
-		if (autoName)
-		{
-			//TODO
-		}
-		else //If not, load the specified file name
-		{
-			try
-			{
-				textureFileNames[HELMET_1] = iniSettings["HelmetTextures"]["FileName1"].getAs<string>();
-			}
-			catch (exception ex) {}
-
-			try
-			{
-				textureFileNames[HELMET_2] = iniSettings["HelmetTextures"]["FileName2"].getAs<string>();
-			}
-			catch (exception ex) {}
-
-			OutputDebugStringA(("File names loaded for Helmet Textures: " + textureFileNames[HELMET_1] + ", " + textureFileNames[HELMET_2]).c_str());
-		}
-
-		//Fall back to default name
-		if (textureFileNames[HELMET_1].empty())
-		{
-			textureFileNames[HELMET_1] = textureDefaultFileNames[HELMET_1];
-
-			OutputDebugStringA(("Reverting to default file name for " + textureNames[HELMET_1] + ": " + textureFileNames[HELMET_1]).c_str());
-		}
-		if (textureFileNames[HELMET_2].empty())
-		{
-			textureFileNames[HELMET_2] = textureDefaultFileNames[HELMET_2];
-
-			OutputDebugStringA(("Reverting to default file name for " + textureNames[HELMET_2] + ": " + textureFileNames[HELMET_2]).c_str());
-		}
-
-
-		// Driver% d_2.tga
-		// Driver% d_1.tga
-		// cp_% s.tga
 
 	}
 	else
