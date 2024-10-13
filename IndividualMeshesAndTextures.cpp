@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <malloc.h>
 #include <string>
+#include <map>
 #include <windows.h>
 
 using namespace std;
@@ -26,6 +27,12 @@ string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars"
 string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d", "Driver%d_2.tga", "Driver%d_1.tga", "cp_%s.tga" };
 string newFormatDefaultFileNames[] = {"CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tga", "Driver{driver}_1.tga", "cp_{teamname}.tga"};
 string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
+
+int track;
+char* teamname;
+int car;
+int driver;
+int lod;
 
 //Target Addresses
 DWORD individualMeshesAddress = 0x0064428C;
@@ -82,6 +89,39 @@ DWORD meshNotExists = false;
 
 char* extension = NULL;
 char textureFileName[128];
+
+string replaceVariables(const string& input, const map<string, string>& replacements) {
+	string result = input;
+	size_t startPos = 0;
+
+	// Loop through the string to find occurrences of variables
+	while ((startPos = result.find('{', startPos)) != string::npos) {
+		size_t endPos = result.find('}', startPos);
+		if (endPos == string::npos) {
+			// No closing brace found, stop processing
+			break;
+		}
+
+		// Extract the variable name (between the curly braces)
+		string varName = result.substr(startPos + 1, endPos - startPos - 1);
+
+		// Check if the variable is in the replacements map
+		if (replacements.find(varName) != replacements.end()) {
+			// Replace the entire {varName} with the corresponding value
+			result.replace(startPos, endPos - startPos + 1, replacements.at(varName));
+
+			// Move past the current replaced text to search for the next variable
+			endPos = startPos + replacements.at(varName).length();
+		}
+		else
+		{
+			// Move past the current variable to search for the next one
+			startPos = endPos + 1;
+		}
+	}
+
+	return result;
+}
 
 void prepFileNameString(DWORD& fileNameStr)
 {
@@ -168,11 +208,30 @@ __declspec(naked) void genericMeshPerTrack() {
 	__asm jmp genericMeshJumpBackAddress //jump back into regular flow
 }
 
+void calcFileName()
+{
+
+	map<string, string> variables;
+
+	driver = 0;
+
+	variables["track"] = to_string(track);
+	variables["teamname"] = teamname;
+	variables["car"] = to_string(car);
+	variables["driver"] = to_string(driver);
+	variables["lod"] = to_string(lod);
+
+	string fileNameTest = replaceVariables("Track: {track}, Team Name {teamname}, Car {car}, Driver {driver}, LOD {lod}", variables);
+
+	OutputDebugStringA(fileNameTest.c_str());
+}
+
 __declspec(naked) void individualMeshPerTrack() {
 
 	__asm { //load trackIndex and push into stack
 		mov EAX, trackIndex
 		mov EAX, dword ptr[EAX]
+		mov track, EAX
 		add EAX, 0x1 //make track index rage 1-17
 		push EAX
 	}
@@ -186,14 +245,20 @@ __declspec(naked) void individualMeshPerTrack() {
 		add ECX, arrTeamNames
 		mov teamName, ECX //save current team name string address
 		push EAX //LOD number
+		mov lod, EAX
 		push EDX //driver 1 / driver 2
+		mov car, EDX
 		push ECX //team name
+		mov teamname, ECX
 		lea EAX, [ESP + 0x34] //Original is + 0x30
 		lea ECX, [ESP + 0x74] //Original is + 0x70
 		push EAX //filename template
 		push ECX //filename
 		call ReplaceWildCards
 	}
+
+	calcFileName();
+
 	_asm { //pop modified stack
 		pop fileNameVar //filename
 		pop fileNameTemplateVar //filename template
@@ -567,6 +632,9 @@ DWORD WINAPI MainThread(LPVOID param) {
 	bool perDriver[] = { false, false, false, false, true, true, true, false };
 	bool perTrack[] = { false, false, false, false, false, false, false, false };
 
+	vector<int> defaultTracks = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17};
+	vector<int> tracks[8];
+
 	//Get the DLL path and use it to load the ini file
 	char currentPath[MAX_PATH];
 	HMODULE dllHandle = GetModuleHandleA("IndividualMeshesAndTextures.dll");
@@ -620,7 +688,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					}
 					catch (exception ex) {}
 
-					messageBuilder.str(std::string());
+					messageBuilder.str(string());
 
 					messageBuilder << "LOD Table for " + assetNames[assetIndex] + ": ";
 
@@ -670,28 +738,53 @@ DWORD WINAPI MainThread(LPVOID param) {
 			catch (exception ex) {}
 
 			OutputDebugStringA(("AutoName " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			
+			//Check if per Team
+			try
+			{
+				perTeam[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerTeam"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("Per Team " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+
+			//Check if per Driver
+			try
+			{
+				perDriver[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerDriver"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("Per Driver " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+
+			//Check if per Track
+			try
+			{
+				perTrack[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerTrack"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("Per Track " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+
+			//Load Track Table
+			if (perTrack[assetIndex])
+			{
+				try
+				{
+					tracks[assetIndex] = iniSettings[assetIDs[assetIndex]]["Tracks"].getVectorAs<int>();
+				}
+				catch (exception ex) {}
+
+				if (tracks[assetIndex].empty())
+				{
+					tracks[assetIndex] = defaultTracks;
+				}
+
+			}
 
 			// Compute file name
 			if (autoName)
 			{
-				try
-				{
-					perTeam[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerTeam"].getAs<bool>();
-				}
-				catch (exception ex) {}
-
-				try
-				{
-					perDriver[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerDriver"].getAs<bool>();
-				}
-				catch (exception ex) {}
-
-				try
-				{
-					perTrack[assetIndex] = iniSettings[assetIDs[assetIndex]]["PerTrack"].getAs<bool>();
-				}
-				catch (exception ex) {}
-
 				fileNameBuilder.str(string());
 
 				if(assetIndex < 5)
