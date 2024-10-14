@@ -28,11 +28,14 @@ string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d",
 string newFormatDefaultFileNames[] = {"CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tga", "Driver{driver}_1.tga", "cp_{teamname}.tga"};
 string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
 
-int track;
+DWORD espVar;
 char* teamname;
+int team;
 int car;
 int driver;
 int lod;
+
+char fileNameString[256] = "";
 
 //Target Addresses
 DWORD individualMeshesAddress = 0x0064428C;
@@ -41,7 +44,7 @@ DWORD lodTableAddress = 0x006442A8;
 DWORD meshFileNamesTable = 0x00644390;
 
 DWORD genericMeshStartAddress = 0x00487100;
-DWORD individualMeshStartAddress = 0x00487059;
+DWORD individualMeshStartAddress = 0x00487085; //0x00487059;
 DWORD defaultMeshStartAddress = 0x004870A3;
 DWORD cockpitTextureSartAddress = 0x00486b76;
 DWORD helmetTexture1StartAddress = 0x00486c07;
@@ -210,20 +213,44 @@ __declspec(naked) void genericMeshPerTrack() {
 
 void calcFileName()
 {
-
 	map<string, string> variables;
 
-	driver = 0;
-
-	variables["track"] = to_string(track);
+	variables["track"] = to_string(*(reinterpret_cast<int*>(trackIndex)) + 1);
 	variables["teamname"] = teamname;
+	variables["team"] = to_string(team);
 	variables["car"] = to_string(car);
 	variables["driver"] = to_string(driver);
 	variables["lod"] = to_string(lod);
+	
+	string path = replaceVariables("CARS\\CAR_{teamname}_CAR{car}_LOD_{lod}.gp4", variables);
 
-	string fileNameTest = replaceVariables("Track: {track}, Team Name {teamname}, Car {car}, Driver {driver}, LOD {lod}", variables);
+	DWORD stackPtr = 0x0019DDC0;
 
-	OutputDebugStringA(fileNameTest.c_str());
+	OutputDebugStringA(path.c_str());
+
+	memcpy((LPVOID)stackPtr, path.c_str(), path.size() + 1);
+
+}
+
+__declspec(naked) void individualMeshFunc() {
+
+	__asm {
+		mov espVar, ESP
+	}
+
+	teamname = *reinterpret_cast<char**>(espVar + 0x08);
+	car = *reinterpret_cast<int*>(espVar + 0x0C);
+	lod = *reinterpret_cast<int*>(espVar + 0x10);
+	team = *reinterpret_cast<int*>(espVar + 0x484) + 1; //19E20C
+	driver = *reinterpret_cast<int*>(espVar + 0x484 + 0x0C) + 1; //19E218
+
+	calcFileName();
+
+	__asm {
+		call ReplaceWildCards
+	}
+
+	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
 }
 
 __declspec(naked) void individualMeshPerTrack() {
@@ -231,7 +258,6 @@ __declspec(naked) void individualMeshPerTrack() {
 	__asm { //load trackIndex and push into stack
 		mov EAX, trackIndex
 		mov EAX, dword ptr[EAX]
-		mov track, EAX
 		add EAX, 0x1 //make track index rage 1-17
 		push EAX
 	}
@@ -245,19 +271,14 @@ __declspec(naked) void individualMeshPerTrack() {
 		add ECX, arrTeamNames
 		mov teamName, ECX //save current team name string address
 		push EAX //LOD number
-		mov lod, EAX
 		push EDX //driver 1 / driver 2
-		mov car, EDX
 		push ECX //team name
-		mov teamname, ECX
 		lea EAX, [ESP + 0x34] //Original is + 0x30
 		lea ECX, [ESP + 0x74] //Original is + 0x70
 		push EAX //filename template
 		push ECX //filename
 		call ReplaceWildCards
 	}
-
-	calcFileName();
 
 	_asm { //pop modified stack
 		pop fileNameVar //filename
@@ -876,7 +897,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 	MemUtils::rerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshPerTrack), VAR_NAME(genericMeshPerTrack));
 
 	//Re-route for individual meshes
-	MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshPerTrack), VAR_NAME(individualMeshPerTrack));
+	//MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshPerTrack), VAR_NAME(individualMeshPerTrack));
+	MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshFunc), VAR_NAME(individualMeshFunc));
 
 	//Re-route for default meshes
 	MemUtils::rerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
