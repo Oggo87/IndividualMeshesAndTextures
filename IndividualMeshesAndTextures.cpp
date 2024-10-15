@@ -22,11 +22,26 @@ enum ASSET_ID
 	COCKPIT
 };
 
+bool trackFolders = false;
+
+//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
+bool individualMeshesEnabled[] = { false, false, false, false, true };
+bool lod0Only[] = { false, false, false, false, false };
+bool perTeam[] = { false, false, false, false, false, false, false, true };
+bool perDriver[] = { false, false, false, false, true, true, true, false };
+bool perTrack[] = { false, false, false, false, false, false, false, false };
+
+vector<int> defaultTracks = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 };
+vector<int> tracks[8];
+
 string assetNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars", "Helmet 2", "Helmet 1", "Cockpit" };
 string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures"};
 string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d", "Driver%d_2.tga", "Driver%d_1.tga", "cp_%s.tga" };
 string newFormatDefaultFileNames[] = {"CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tga", "Driver{driver}_1.tga", "cp_{teamname}.tga"};
 string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
+
+//Array of mesh and textures filenames
+string fileNames[8];
 
 DWORD espVar;
 char* teamname;
@@ -35,7 +50,7 @@ int car;
 int driver;
 int lod;
 
-char fileNameString[256] = "";
+char fileNameString[64] = "";
 
 //Target Addresses
 DWORD individualMeshesAddress = 0x0064428C;
@@ -66,13 +81,15 @@ DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
 
 //Vars and Data Addresses
 DWORD trackIndex = 0x007AD894;
+DWORD carsFolder = 0x00644EE4;
+DWORD gp4Extension = 0x0063EE08;
+
 DWORD arrTeamNames = 0x643ba8;
 DWORD arrLodsPerMeshType = 0x6442a8;
 DWORD defaultTeam = 0x644edc;
 DWORD cockpitTexture = 0x644d94;
 DWORD helmetTexture1 = 0x644d84;
 DWORD helmetTexture2 = 0x644d74;
-DWORD carsFolderStr = 0x00644ee4;
 
 //Function Addresses
 DWORD ReplaceWildCards = 0x005DB088;
@@ -129,7 +146,7 @@ string replaceVariables(const string& input, const map<string, string>& replacem
 void prepFileNameString(DWORD& fileNameStr)
 {
 	//comparison has to include subfolders within cars.wad (i.e. cars\ in this case)
-	strcpy_s(textureFileName, 128, (char*)carsFolderStr);
+	strcpy_s(textureFileName, 128, (char*)carsFolder);
 	strcat_s(textureFileName, 128, (char*)fileNameStr);
 
 	//extension needs to be tex for the comparison to work
@@ -215,18 +232,31 @@ void calcFileName()
 {
 	map<string, string> variables;
 
-	variables["track"] = to_string(*(reinterpret_cast<int*>(trackIndex)) + 1);
+	DWORD meshIndexStack = 0x0019E208;
+	int meshIndex = *reinterpret_cast<int*>(meshIndexStack);
+
+	int track = *(reinterpret_cast<int*>(trackIndex));
+
+	if (perTrack[meshIndex])
+	{
+		track = tracks[meshIndex][track];
+	}
+
+	variables["track"] = to_string(track);
 	variables["teamname"] = teamname;
 	variables["team"] = to_string(team);
 	variables["car"] = to_string(car);
 	variables["driver"] = to_string(driver);
 	variables["lod"] = to_string(lod);
-	
-	string path = replaceVariables("CARS\\CAR_{teamname}_CAR{car}_LOD_{lod}.gp4", variables);
 
-	DWORD stackPtr = 0x0019DDC0;
+	string carsFolderString = reinterpret_cast<char*>(carsFolder);
+	string gp4ExtensionString = reinterpret_cast<char*>(gp4Extension);
+
+	string path = carsFolderString + replaceVariables(fileNames[meshIndex], variables) + gp4ExtensionString;
 
 	OutputDebugStringA(path.c_str());
+
+	DWORD stackPtr = 0x0019DDC0;
 
 	memcpy((LPVOID)stackPtr, path.c_str(), path.size() + 1);
 
@@ -646,16 +676,6 @@ DWORD WINAPI MainThread(LPVOID param) {
 	ostringstream messageBuilder;
 	ostringstream fileNameBuilder;
 
-	//Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
-	bool individualMeshesEnabled[] = { false, false, false, false, true };
-	bool lod0Only[] = { false, false, false, false, false };
-	bool perTeam[] = { false, false, false, false, false, false, false, true };
-	bool perDriver[] = { false, false, false, false, true, true, true, false };
-	bool perTrack[] = { false, false, false, false, false, false, false, false };
-
-	vector<int> defaultTracks = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17};
-	vector<int> tracks[8];
-
 	//Get the DLL path and use it to load the ini file
 	char currentPath[MAX_PATH];
 	HMODULE dllHandle = GetModuleHandleA("IndividualMeshesAndTextures.dll");
@@ -668,11 +688,15 @@ DWORD WINAPI MainThread(LPVOID param) {
 	if (iniSettings.load(iniFilePath))
 	{
 
-		//Array of mesh and textures filenames
-		string fileNames[8];
-
 		for (int assetIndex = 0; assetIndex < 8; assetIndex++)
 		{
+			try
+			{
+				trackFolders = iniSettings["Settings"]["TrackFolders"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("Track Folders : " + string(trackFolders ? "Enabled" : "Disabled")).c_str());
 
 			if (assetIndex < 4)
 			{
@@ -810,27 +834,33 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 				if(assetIndex < 5)
 				{
+
+					if (perTrack[assetIndex] && trackFolders)
+					{
+						fileNameBuilder << "Track{track}\\";
+					}
+
 					fileNameBuilder << "car_";
 
 					if (perTeam[assetIndex] || perDriver[assetIndex])
 					{
-						fileNameBuilder << "%s_";
+						fileNameBuilder << "{teamname}_";
 					}
 
-					fileNameBuilder << filePartialNames[assetIndex] << (perDriver[assetIndex] ? "%d" : "") << "_";
+					fileNameBuilder << filePartialNames[assetIndex] << (perDriver[assetIndex] ? "{car}" : "") << "_";
 
 					if (assetIndex > 1 && assetIndex < 4)
 					{
-						fileNameBuilder << "%02d";
+						fileNameBuilder << "0{lod}";
 					}
 					else
 					{
-						fileNameBuilder << "LOD_%d";
+						fileNameBuilder << "LOD_{lod}";
 					}
 
-					if (perTrack[assetIndex])
+					if (perTrack[assetIndex] && !trackFolders)
 					{
-						fileNameBuilder << "_track_%d";
+						fileNameBuilder << "_track_{track}";
 					}
 				}
 				else
