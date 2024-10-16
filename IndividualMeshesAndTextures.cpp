@@ -228,7 +228,7 @@ __declspec(naked) void genericMeshPerTrack() {
 	__asm jmp genericMeshJumpBackAddress //jump back into regular flow
 }
 
-void calcFileName()
+void calcFileName(bool useDefaultFileName = false)
 {
 	map<string, string> variables;
 
@@ -249,35 +249,83 @@ void calcFileName()
 	variables["driver"] = to_string(driver);
 	variables["lod"] = to_string(lod);
 
-	string carsFolderString = reinterpret_cast<char*>(carsFolder);
-	string gp4ExtensionString = reinterpret_cast<char*>(gp4Extension);
+	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
+	string gp4ExtensionString = MemUtils::addressToPtr<char>(gp4Extension);
 
-	string path = carsFolderString + replaceVariables(fileNames[meshIndex], variables) + gp4ExtensionString;
+	string path = carsFolderString + replaceVariables(useDefaultFileName ? newFormatDefaultFileNames[meshIndex] : fileNames[meshIndex], variables) + gp4ExtensionString;
 
 	OutputDebugStringA(path.c_str());
 
-	DWORD stackPtr = 0x0019DDC0;
+	//The first value in the stack is the string that needs to be replaced
+	char* stackPtr = MemUtils::addressToValue<char*>(espVar); 
 
-	memcpy((LPVOID)stackPtr, path.c_str(), path.size() + 1);
+	memcpy(stackPtr, path.c_str(), path.size() + 1);
 
+}
+
+void restoreOriginalFileNameTemplateInStack()
+{
+	//The second value in the stack is the string that needs to be replaced
+	char* stackPtr = MemUtils::addressToValue<char*>(espVar + 0x04);
+
+	DWORD meshIndexStack = 0x0019E208;
+	int meshIndex = *reinterpret_cast<int*>(meshIndexStack);
+
+	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
+	string gp4ExtensionString = MemUtils::addressToPtr<char>(gp4Extension);
+
+	string path = carsFolderString + defaultFileNames[meshIndex]+ gp4ExtensionString;
+
+	memcpy(stackPtr, path.c_str(), path.size() + 1);
 }
 
 __declspec(naked) void individualMeshFunc() {
 
-	__asm {
-		mov espVar, ESP
-	}
 
-	teamname = *reinterpret_cast<char**>(espVar + 0x08);
-	car = *reinterpret_cast<int*>(espVar + 0x0C);
-	lod = *reinterpret_cast<int*>(espVar + 0x10);
-	team = *reinterpret_cast<int*>(espVar + 0x484) + 1; //19E20C
-	driver = *reinterpret_cast<int*>(espVar + 0x484 + 0x0C) + 1; //19E218
+	//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+	__asm call ReplaceWildCards
 
+	//save stack pointer
+	__asm mov espVar, ESP
+
+	//save all necessary variables/values
+	teamname = MemUtils::addressToValue<char*>(espVar + 0x08);
+	car = MemUtils::addressToValue<int>(espVar + 0x0C);
+	lod = MemUtils::addressToValue<int>(espVar + 0x10);
+	team = MemUtils::addressToValue<int>(espVar + 0x484) + 1; //19E20C
+	driver = MemUtils::addressToValue<int>(espVar + 0x484 + 0x0C) + 1; //19E218
+
+	//calculate new file name
 	calcFileName();
 
-	__asm {
-		call ReplaceWildCards
+	//save volatile registers
+	RegUtils::saveVolatileRegisters();
+
+
+	__asm { //check if file exists
+		push 0
+		push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+		call MeshFileExists
+		mov meshNotExists, EAX //save comparison result
+	}
+
+	//restore volatile registers
+	RegUtils::restoreVolatileRegisters();
+
+	//fall-back to default GP4 file name
+	if (meshNotExists)
+	{
+		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+		__asm call ReplaceWildCards
+
+		//calculate new file name using GP4 default naming convention
+		calcFileName(true);
+
+		OutputDebugStringA("Reverting to default GP4 file name [");
+
+		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
+
+		OutputDebugStringA("]");
 	}
 
 	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
@@ -931,7 +979,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 	MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshFunc), VAR_NAME(individualMeshFunc));
 
 	//Re-route for default meshes
-	MemUtils::rerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
+	//MemUtils::rerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
 
 	//Allocate memory for new file name string
 	char* cockpitTextureFileName = (char*)VirtualAlloc(NULL, 256, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
