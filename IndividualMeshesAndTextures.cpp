@@ -43,12 +43,12 @@ string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", 
 //Array of mesh and textures filenames
 string fileNames[8];
 
+//map to store the variables for subsitution
+map<string, string> variables;
+int meshIndex;
+int track;
+
 DWORD espVar;
-char* teamname;
-int team;
-int car;
-int driver;
-int lod;
 
 char fileNameString[64] = "";
 
@@ -58,7 +58,7 @@ DWORD lodsPerMeshAddress = 0x00644294;
 DWORD lodTableAddress = 0x006442A8;
 DWORD meshFileNamesTable = 0x00644390;
 
-DWORD genericMeshStartAddress = 0x00487100;
+DWORD genericMeshStartAddress = 0x00487107; //0x00487100;
 DWORD individualMeshStartAddress = 0x00487085; //0x00487059;
 DWORD defaultMeshStartAddress = 0x004870A3;
 DWORD cockpitTextureSartAddress = 0x00486b76;
@@ -80,6 +80,7 @@ DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
 
 //Vars and Data Addresses
+DWORD meshIndexStack = 0x0019E208;
 DWORD trackIndex = 0x007AD894;
 DWORD carsFolder = 0x00644EE4;
 DWORD gp4Extension = 0x0063EE08;
@@ -160,98 +161,13 @@ void prepFileNameString(DWORD& fileNameStr)
 	fileNameStr = PtrToUlong(textureFileName);
 }
 
-__declspec(naked) void genericMeshPerTrack() {
-
-	__asm { //load trackIndex and push into stack
-		mov EAX, trackIndex
-		mov EAX, dword ptr[EAX]
-		add EAX, 0x1 //make track index rage 1-17
-		push EAX
-	}
-	__asm { //original instructions (adjusted for new var in Stack)
-		lea EAX, [ESP + 0x28] //Original is + 0x24
-		push EDX //LOD number
-		push EAX //filename template
-		push ECX //filename
-		call ReplaceWildCards
-	}
-
-	//save volatile registers
-	RegUtils::saveVolatileRegisters();
-
-	__asm { //check if mesh exists
-		push 0
-		push dword ptr[ESP + 0x4] //filename
-		call MeshFileExists
-		mov meshNotExists, EAX //save comparison result
-	}
-
-	//restore volatile registers
-	RegUtils::restoreVolatileRegisters();
-
-	//fall-back
-	if (meshNotExists)
-	{
-		_asm { //save variables from stack
-			pop fileNameVar //filename
-			pop fileNameTemplateVar //filename template
-			pop lodVar //LOD number
-			pop trackIndexVar //track index
-		}
-		_asm { //new stack for fall-back name
-			push 0x1 //default to track 1
-			push lodVar //LOD number
-			push fileNameTemplateVar //filename template
-			push fileNameVar //filename
-			call ReplaceWildCards
-			mov fileNameVar, ESP //save filename
-		}
-
-		OutputDebugStringA("Reverting to default mesh [");
-
-		OutputDebugStringA(*(char**)ULongToPtr(fileNameVar));
-
-		OutputDebugStringA("]\n");
-	}
-	_asm { //pop modified stack
-		pop fileNameVar //filename
-		pop fileNameTemplateVar //filename template
-		pop lodVar //LOD number
-		pop trackIndexVar //track index
-	}
-
-	_asm { //restore stack as it should be
-		push lodVar //LOD number
-		push fileNameTemplateVar //filename template
-		push fileNameVar //filename
-	}
-	__asm jmp genericMeshJumpBackAddress //jump back into regular flow
-}
-
 void calcFileName(bool useDefaultFileName = false)
 {
-	map<string, string> variables;
-
-	DWORD meshIndexStack = 0x0019E208;
-	int meshIndex = *reinterpret_cast<int*>(meshIndexStack);
-
-	int track = *(reinterpret_cast<int*>(trackIndex));
-
-	if (perTrack[meshIndex])
-	{
-		track = tracks[meshIndex][track];
-	}
-
-	variables["track"] = to_string(track);
-	variables["teamname"] = teamname;
-	variables["team"] = to_string(team);
-	variables["car"] = to_string(car);
-	variables["driver"] = to_string(driver);
-	variables["lod"] = to_string(lod);
-
+	//Get Cars folder and .gp4 extension to compose file path
 	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
 	string gp4ExtensionString = MemUtils::addressToPtr<char>(gp4Extension);
 
+	//Compose file path, including variables
 	string path = carsFolderString + replaceVariables(useDefaultFileName ? newFormatDefaultFileNames[meshIndex] : fileNames[meshIndex], variables) + gp4ExtensionString;
 
 	OutputDebugStringA(path.c_str());
@@ -263,37 +179,44 @@ void calcFileName(bool useDefaultFileName = false)
 
 }
 
-void restoreOriginalFileNameTemplateInStack()
+void initMeshIndex()
 {
-	//The second value in the stack is the string that needs to be replaced
-	char* stackPtr = MemUtils::addressToValue<char*>(espVar + 0x04);
-
-	DWORD meshIndexStack = 0x0019E208;
-	int meshIndex = *reinterpret_cast<int*>(meshIndexStack);
-
-	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
-	string gp4ExtensionString = MemUtils::addressToPtr<char>(gp4Extension);
-
-	string path = carsFolderString + defaultFileNames[meshIndex]+ gp4ExtensionString;
-
-	memcpy(stackPtr, path.c_str(), path.size() + 1);
+	meshIndex = MemUtils::addressToValue<int>(meshIndexStack);
 }
 
-__declspec(naked) void individualMeshFunc() {
+void initTrackIndex()
+{
+	track = MemUtils::addressToValue<int>(trackIndex);
 
+	if (perTrack[meshIndex])
+	{
+		track = tracks[meshIndex][track];
+	}
+}
 
+void initGenericMeshVariables()
+{
+	//clear map and save all necessary variables/values
+	variables.clear();
+	variables["lod"] = to_string(MemUtils::addressToValue<int>(espVar + 0x08));
+}
+
+__declspec(naked) void genericMeshFunc()
+{
 	//dummy call to ReplaceWildCards to ensure registries and stack are properly set
 	__asm call ReplaceWildCards
 
 	//save stack pointer
 	__asm mov espVar, ESP
 
-	//save all necessary variables/values
-	teamname = MemUtils::addressToValue<char*>(espVar + 0x08);
-	car = MemUtils::addressToValue<int>(espVar + 0x0C);
-	lod = MemUtils::addressToValue<int>(espVar + 0x10);
-	team = MemUtils::addressToValue<int>(espVar + 0x484) + 1; //19E20C
-	driver = MemUtils::addressToValue<int>(espVar + 0x484 + 0x0C) + 1; //19E218
+	//set current mesh index
+	initMeshIndex();
+
+	//set current track index
+	initTrackIndex();
+
+	//set variables
+	initGenericMeshVariables();
 
 	//calculate new file name
 	calcFileName();
@@ -301,6 +224,69 @@ __declspec(naked) void individualMeshFunc() {
 	//save volatile registers
 	RegUtils::saveVolatileRegisters();
 
+	__asm { //check if file exists
+		push 0
+		push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+		call MeshFileExists
+		mov meshNotExists, EAX //save comparison result
+	}
+
+	//restore volatile registers
+	RegUtils::restoreVolatileRegisters();
+
+	//fall-back to default GP4 file name
+	if (meshNotExists)
+	{
+		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+		__asm call ReplaceWildCards
+
+		//calculate new file name using GP4 default naming convention
+		calcFileName(true);
+
+		OutputDebugStringA("Reverting to default GP4 file name [");
+
+		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
+
+		OutputDebugStringA("]");
+	}
+
+	__asm jmp genericMeshJumpBackAddress //jump back into regular flow
+}
+
+void initIndividualMeshVariables()
+{
+	//clear map and save all necessary variables/values
+	variables.clear();
+	variables["track"] = to_string(track);
+	variables["teamname"] = MemUtils::addressToValue<char*>(espVar + 0x08);
+	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x0C));
+	variables["lod"] = to_string(MemUtils::addressToValue<int>(espVar + 0x10));
+	variables["team"] = to_string(MemUtils::addressToValue<int>(espVar + 0x484) + 1); //19E20C
+	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x484 + 0x0C) + 1); //19E218
+}
+
+__declspec(naked) void individualMeshFunc()
+{
+	//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+	__asm call ReplaceWildCards
+
+	//save stack pointer
+	__asm mov espVar, ESP
+
+	//set current mesh index
+	initMeshIndex();
+
+	//set current track index
+	initTrackIndex();
+
+	//set variables
+	initIndividualMeshVariables();
+
+	//calculate new file name
+	calcFileName();
+
+	//save volatile registers
+	RegUtils::saveVolatileRegisters();
 
 	__asm { //check if file exists
 		push 0
@@ -329,87 +315,6 @@ __declspec(naked) void individualMeshFunc() {
 	}
 
 	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
-}
-
-__declspec(naked) void individualMeshPerTrack() {
-
-	__asm { //load trackIndex and push into stack
-		mov EAX, trackIndex
-		mov EAX, dword ptr[EAX]
-		add EAX, 0x1 //make track index rage 1-17
-		push EAX
-	}
-	__asm { //original instructions (adjusted for new var in Stack and reordered to work with local variables)
-		lea EAX, [EDX + EBP * 0x1]
-		mov EDX, arrLodsPerMeshType
-		lea ESI, [EAX * 0x4 + EDX]
-		mov EAX, dword ptr[EAX * 0x4 + EDX]
-		mov EDX, dword ptr[ESP + 0x478] //Original is + 0x474
-		inc EDX
-		add ECX, arrTeamNames
-		mov teamName, ECX //save current team name string address
-		push EAX //LOD number
-		push EDX //driver 1 / driver 2
-		push ECX //team name
-		lea EAX, [ESP + 0x34] //Original is + 0x30
-		lea ECX, [ESP + 0x74] //Original is + 0x70
-		push EAX //filename template
-		push ECX //filename
-		call ReplaceWildCards
-	}
-
-	_asm { //pop modified stack
-		pop fileNameVar //filename
-		pop fileNameTemplateVar //filename template
-		pop teamNameVar //team name
-		pop driverIdVar //driver 1 / driver 2
-		pop lodVar //LOD number
-		pop trackIndexVar //track index
-	}
-
-	_asm { //restore stack as it should be
-		push lodVar //LOD number
-		push driverIdVar //driver 1 / driver 2
-		push teamNameVar //team name
-		push fileNameTemplateVar //filename template
-		push fileNameVar //filename
-	}
-	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
-}
-
-__declspec(naked) void defaultMeshPerTrack() {
-
-	__asm { //default trackIndex to 1 and push into stack
-		push 1
-	}
-	__asm { //original instructions (adjusted for new var in Stack)
-		mov EAX, dword ptr[ESI]
-		lea ECX, [ESP + 0x28] //Original is + 0x24
-		push EAX //LOD number
-		push 0x1 //use driver 1 for default
-		push teamName //use current team name 
-		lea EDX, [ESP + 0x74] //Original is + 0x70
-		push ECX //filename template
-		push EDX //filename
-		call ReplaceWildCards
-	}
-	_asm { //pop modified stack
-		pop fileNameVar //filename
-		pop fileNameTemplateVar //filename template
-		pop teamNameVar //team name
-		pop driverIdVar //driver 1 / driver 2
-		pop lodVar //LOD number
-		pop trackIndexVar //track index
-	}
-
-	_asm { //restore stack as it should be
-		push lodVar //LOD number
-		push driverIdVar //driver 1 / driver 2
-		push teamNameVar //team name
-		push fileNameTemplateVar //filename template
-		push fileNameVar //filename
-	}
-	__asm jmp defaultMeshJumpBackAddress //jump back into regular flow
 }
 
 __declspec(naked) void cockpitTexturePerTrack() {
@@ -684,9 +589,7 @@ __declspec(naked) void checkNullPointerSingleCockpitMirrors() {
 
 __declspec(naked) void applyCockpitMirrorsPerCar() {
 
-	__asm {
-		call LoadCarRelatedMesh
-	}
+	__asm call LoadCarRelatedMesh
 
 	//copy of original code for mirrors, adapted for individual cars
 	__asm {
@@ -701,7 +604,6 @@ __declspec(naked) void applyCockpitMirrorsPerCar() {
 		call UnkFunction2	//return EAX 0x0320
 		cmp EAX, -1
 		jz skip //0x00485e90
-		//mov EDX, dword ptr[0x00a4d67c] //EDI?
 		mov EDX, dword ptr[EDI]
 		mov ECX, dword ptr[EDX + 0x58]
 		cmp ECX, -1
@@ -803,8 +705,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 				}
 
 				//Calculate LODs per Mesh
-				int nLods = 1;
-				for (; lodEntries[nLods] > 0 && nLods < 5; nLods++);
+				int nLods;
+				for (nLods = 1; lodEntries[nLods] > 0 && nLods < 5; nLods++);
 
 				messageBuilder.str(string());
 
@@ -880,22 +782,29 @@ DWORD WINAPI MainThread(LPVOID param) {
 			{
 				fileNameBuilder.str(string());
 
+				if (perTrack[assetIndex] && trackFolders)
+				{
+					fileNameBuilder << "Track{track}\\";
+				}
+
 				if(assetIndex < 5)
 				{
 
-					if (perTrack[assetIndex] && trackFolders)
-					{
-						fileNameBuilder << "Track{track}\\";
-					}
-
 					fileNameBuilder << "car_";
 
-					if (perTeam[assetIndex] || perDriver[assetIndex])
+					if (individualMeshesEnabled[assetIndex] && (perTeam[assetIndex] || perDriver[assetIndex]))
 					{
 						fileNameBuilder << "{teamname}_";
 					}
 
-					fileNameBuilder << filePartialNames[assetIndex] << (perDriver[assetIndex] ? "{car}" : "") << "_";
+					fileNameBuilder << filePartialNames[assetIndex];
+					
+					if (perDriver[assetIndex] && individualMeshesEnabled[assetIndex])
+					{
+						fileNameBuilder << "{car}";
+					}
+					
+					fileNameBuilder << "_";
 
 					if (assetIndex > 1 && assetIndex < 4)
 					{
@@ -923,7 +832,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					{
 						fileNameBuilder << "%d";
 					}
-					if (perTrack[assetIndex])
+					if (perTrack[assetIndex] && !trackFolders)
 					{
 						fileNameBuilder << "_track_%d";
 					}
@@ -952,7 +861,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			//Fall back to default name
 			if (fileNames[assetIndex].empty())
 			{
-				fileNames[assetIndex] = defaultFileNames[assetIndex];
+				fileNames[assetIndex] = newFormatDefaultFileNames[assetIndex];
 
 				OutputDebugStringA(("Reverting to default file name for " + assetNames[assetIndex] + ": " + fileNames[assetIndex]).c_str());
 			}
@@ -972,14 +881,10 @@ DWORD WINAPI MainThread(LPVOID param) {
 	MemUtils::rerouteFunction(cockpitMirrorsPerCarStartAddress, PtrToUlong(applyCockpitMirrorsPerCar), VAR_NAME(applyCockpitMirrorsPerCar));
 
 	//Re-route for generic meshes
-	MemUtils::rerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshPerTrack), VAR_NAME(genericMeshPerTrack));
+	MemUtils::rerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshFunc), VAR_NAME(genericMeshFunc));
 
 	//Re-route for individual meshes
-	//MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshPerTrack), VAR_NAME(individualMeshPerTrack));
 	MemUtils::rerouteFunction(individualMeshStartAddress, PtrToUlong(individualMeshFunc), VAR_NAME(individualMeshFunc));
-
-	//Re-route for default meshes
-	//MemUtils::rerouteFunction(defaultMeshStartAddress, PtrToUlong(defaultMeshPerTrack), VAR_NAME(defaultMeshPerTrack));
 
 	//Allocate memory for new file name string
 	char* cockpitTextureFileName = (char*)VirtualAlloc(NULL, 256, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
