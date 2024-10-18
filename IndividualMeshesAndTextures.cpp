@@ -2,8 +2,8 @@
 #include "IniLib/IniLib.h"
 #include <iomanip>
 #include <malloc.h>
-#include <string>
 #include <map>
+#include <string>
 #include <windows.h>
 
 using namespace std;
@@ -35,9 +35,9 @@ vector<int> defaultTracks = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 };
 vector<int> tracks[8];
 
 string assetNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars", "Helmet 2", "Helmet 1", "Cockpit" };
-string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures"};
+string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures" };
 string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d", "Driver%d_2.tex", "Driver%d_1.tex", "cp_%s.tex" };
-string newFormatDefaultFileNames[] = {"CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tex", "Driver{driver}_1.tex", "cp_{teamname}.tex"};
+string newFormatDefaultFileNames[] = { "CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tex", "Driver{driver}_1.tex", "cp_{teamname}.tex" };
 string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
 
 //Array of mesh and textures filenames
@@ -145,7 +145,7 @@ void prepFileNameString(DWORD& fileNameStr)
 	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
 	string textureFileNameString = MemUtils::addressToPtr<char>(fileNameStr);
 
-	strcpy_s(textureFileName,(carsFolderString + textureFileNameString).c_str());
+	strcpy_s(textureFileName, (carsFolderString + textureFileNameString).c_str());
 
 	fileNameStr = PtrToUlong(textureFileName);
 }
@@ -173,7 +173,7 @@ void calcFileName(bool useDefaultFileName = false)
 	OutputDebugStringA(path.c_str());
 
 	//The first value in the stack is the string that needs to be replaced
-	char* stackPtr = MemUtils::addressToValue<char*>(espVar); 
+	char* stackPtr = MemUtils::addressToValue<char*>(espVar);
 
 	memcpy(stackPtr, path.c_str(), path.size() + 1);
 
@@ -322,6 +322,16 @@ void initCockpitAssetIndex()
 	meshIndex = ASSET_ID::COCKPIT_TEX;
 }
 
+void initCockpitTextureVariables()
+{
+	//clear map and save all necessary variables/values
+	variables.clear();
+	variables["track"] = to_string(track);
+	variables["teamname"] = MemUtils::addressToValue<char*>(espVar + 0x08);
+	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x0C));
+	variables["team"] = to_string(MemUtils::addressToValue<int>(0x0019E20C) + 1); //19E20C
+	variables["driver"] = to_string(MemUtils::addressToValue<int>(0x0019E218) + 1); //19E218
+}
 void initCockpitTextureVariables()
 {
 	//clear map and save all necessary variables/values
@@ -716,7 +726,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			catch (exception ex) {}
 
 			OutputDebugStringA(("AutoName " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
-			
+
 			//Check if per Team
 			try
 			{
@@ -770,7 +780,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					fileNameBuilder << "Track{track}\\";
 				}
 
-				if(assetIndex < 5)
+				if (assetIndex < 5)
 				{
 
 					fileNameBuilder << "car_";
@@ -781,12 +791,12 @@ DWORD WINAPI MainThread(LPVOID param) {
 					}
 
 					fileNameBuilder << filePartialNames[assetIndex];
-					
+
 					if (perDriver[assetIndex] && individualMeshesEnabled[assetIndex])
 					{
 						fileNameBuilder << "{car}";
 					}
-					
+
 					fileNameBuilder << "_";
 
 					if (assetIndex > 1 && assetIndex < 4)
@@ -819,7 +829,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					{
 						fileNameBuilder << "_track_{track}";
 					}
-					if(assetIndex < 7)
+					if (assetIndex < 7)
 					{
 						fileNameBuilder << "_" << 7 - assetIndex;
 					}
