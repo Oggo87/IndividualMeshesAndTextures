@@ -2,8 +2,8 @@
 #include "IniLib/IniLib.h"
 #include <iomanip>
 #include <malloc.h>
-#include <string>
 #include <map>
+#include <string>
 #include <windows.h>
 
 using namespace std;
@@ -19,7 +19,7 @@ enum ASSET_ID
 	CARS,
 	HELMET_2,
 	HELMET_1,
-	COCKPIT
+	COCKPIT_TEX
 };
 
 bool trackFolders = false;
@@ -35,9 +35,9 @@ vector<int> defaultTracks = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 };
 vector<int> tracks[8];
 
 string assetNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars", "Helmet 2", "Helmet 1", "Cockpit" };
-string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures"};
-string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d", "Driver%d_2.tga", "Driver%d_1.tga", "cp_%s.tga" };
-string newFormatDefaultFileNames[] = {"CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tga", "Driver{driver}_1.tga", "cp_{teamname}.tga"};
+string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures" };
+string defaultFileNames[] = { "CAR_Wheel_Front_LOD_%d", "CAR_Wheel_Rear_LOD_%d", "CAR_Helmet_%02d", "CAR_Cockpit_%02d", "CAR_%s_CAR%d_LOD_%d", "Driver%d_2.tex", "Driver%d_1.tex", "cp_%s.tex" };
+string newFormatDefaultFileNames[] = { "CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_2.tex", "Driver{driver}_1.tex", "cp_{teamname}.tex" };
 string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
 
 //Array of mesh and textures filenames
@@ -45,12 +45,6 @@ string fileNames[8];
 
 //map to store the variables for subsitution
 map<string, string> variables;
-int meshIndex;
-int track;
-
-DWORD espVar;
-
-char fileNameString[64] = "";
 
 //Target Addresses
 DWORD individualMeshesAddress = 0x0064428C;
@@ -58,10 +52,9 @@ DWORD lodsPerMeshAddress = 0x00644294;
 DWORD lodTableAddress = 0x006442A8;
 DWORD meshFileNamesTable = 0x00644390;
 
-DWORD genericMeshStartAddress = 0x00487107; //0x00487100;
-DWORD individualMeshStartAddress = 0x00487085; //0x00487059;
-DWORD defaultMeshStartAddress = 0x004870A3;
-DWORD cockpitTextureSartAddress = 0x00486b76;
+DWORD genericMeshStartAddress = 0x00487107;
+DWORD individualMeshStartAddress = 0x00487085;
+DWORD cockpitTextureSartAddress = 0x00486b8b;
 DWORD helmetTexture1StartAddress = 0x00486c07;
 DWORD helmetTexture2StartAddress = 0x00486c48;
 
@@ -71,7 +64,6 @@ DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
 //Jump Back Addresses
 DWORD genericMeshJumpBackAddress = 0x0048710C;
 DWORD individualMeshJumpBackAddress = 0x0048708A;
-DWORD defaultMeshJumpBackAddress = 0x004870C7;
 DWORD cockpitTextureJumpBackAddress = 0x00486b90;
 DWORD helmetTexture1JumpBackAddress = 0x00486c20;
 DWORD helmetTexture2JumpBackAddress = 0x00486c61;
@@ -94,7 +86,7 @@ DWORD helmetTexture2 = 0x644d74;
 
 //Function Addresses
 DWORD ReplaceWildCards = 0x005DB088;
-DWORD MeshFileExists = 0x0046af40;
+DWORD AssetFileExists = 0x0046af40;
 
 DWORD LoadCarRelatedMesh = 0x00486f60;
 DWORD UnkFunction1 = 0x00470d70;
@@ -102,14 +94,17 @@ DWORD UnkFunction2 = 0x0045e770;
 DWORD UnkMaterialFunction = 0x00459290;
 
 //Storage Variables
-DWORD eaxVar, ecxVar, edxVar;
+DWORD eaxVar, ecxVar, edxVar, espVar;
 DWORD fileNameVar, fileNameTemplateVar, lodVar, trackIndexVar, driverNumberVar, driverIdVar, teamNameVar;
 DWORD teamName;
+int meshIndex;
+int track;
 
-DWORD meshNotExists = false;
+char fileNameString[64] = "";
 
-char* extension = NULL;
-char textureFileName[128];
+DWORD fileNotExists = false;
+
+char textureFileName[128] = "";
 
 string replaceVariables(const string& input, const map<string, string>& replacements) {
 	string result = input;
@@ -147,16 +142,10 @@ string replaceVariables(const string& input, const map<string, string>& replacem
 void prepFileNameString(DWORD& fileNameStr)
 {
 	//comparison has to include subfolders within cars.wad (i.e. cars\ in this case)
-	strcpy_s(textureFileName, 128, (char*)carsFolder);
-	strcat_s(textureFileName, 128, (char*)fileNameStr);
+	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
+	string textureFileNameString = MemUtils::addressToPtr<char>(fileNameStr);
 
-	//extension needs to be tex for the comparison to work
-	extension = strstr(textureFileName, ".tga");
-	if (extension != NULL)
-	{
-		extension[2] = 'e';
-		extension[3] = 'x';
-	}
+	strcpy_s(textureFileName, (carsFolderString + textureFileNameString).c_str());
 
 	fileNameStr = PtrToUlong(textureFileName);
 }
@@ -168,12 +157,23 @@ void calcFileName(bool useDefaultFileName = false)
 	string gp4ExtensionString = MemUtils::addressToPtr<char>(gp4Extension);
 
 	//Compose file path, including variables
-	string path = carsFolderString + replaceVariables(useDefaultFileName ? newFormatDefaultFileNames[meshIndex] : fileNames[meshIndex], variables) + gp4ExtensionString;
+	string path = "";
+	if (meshIndex < 5)
+	{
+		path += carsFolderString;
+	}
+
+	path += replaceVariables(useDefaultFileName ? newFormatDefaultFileNames[meshIndex] : fileNames[meshIndex], variables);
+
+	if (meshIndex < 5)
+	{
+		path += gp4ExtensionString;
+	}
 
 	OutputDebugStringA(path.c_str());
 
 	//The first value in the stack is the string that needs to be replaced
-	char* stackPtr = MemUtils::addressToValue<char*>(espVar); 
+	char* stackPtr = MemUtils::addressToValue<char*>(espVar);
 
 	memcpy(stackPtr, path.c_str(), path.size() + 1);
 
@@ -227,15 +227,15 @@ __declspec(naked) void genericMeshFunc()
 	__asm { //check if file exists
 		push 0
 		push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-		call MeshFileExists
-		mov meshNotExists, EAX //save comparison result
+		call AssetFileExists
+		mov fileNotExists, EAX //save comparison result
 	}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
 	//fall-back to default GP4 file name
-	if (meshNotExists)
+	if (fileNotExists)
 	{
 		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
 		__asm call ReplaceWildCards
@@ -291,15 +291,15 @@ __declspec(naked) void individualMeshFunc()
 	__asm { //check if file exists
 		push 0
 		push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-		call MeshFileExists
-		mov meshNotExists, EAX //save comparison result
+		call AssetFileExists
+		mov fileNotExists, EAX //save comparison result
 	}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
 	//fall-back to default GP4 file name
-	if (meshNotExists)
+	if (fileNotExists)
 	{
 		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
 		__asm call ReplaceWildCards
@@ -317,93 +317,76 @@ __declspec(naked) void individualMeshFunc()
 	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
 }
 
-__declspec(naked) void cockpitTexturePerTrack() {
+void initCockpitAssetIndex()
+{
+	meshIndex = ASSET_ID::COCKPIT_TEX;
+}
 
-	__asm { //load trackIndex and push into stack
-		mov EAX, trackIndex
-		mov EAX, dword ptr[EAX]
-		add EAX, 0x1 //make track index rage 1-17
-		push EAX
-	}
+void initCockpitTextureVariables()
+{
+	//clear map and save all necessary variables/values
+	variables.clear();
+	variables["track"] = to_string(track);
+	variables["teamname"] = MemUtils::addressToValue<char*>(espVar + 0x08);
+	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x0C));
+	variables["team"] = to_string(MemUtils::addressToValue<int>(0x0019E20C) + 1); //19E20C
+	variables["driver"] = to_string(MemUtils::addressToValue<int>(0x0019E218) + 1); //19E218
+}
 
-	__asm { //load driver 1 / driver 2 and push into stack
-		mov EAX, dword ptr[ESP + 0xc]
-		add EAX, 0x1
-		push EAX
-	}
+__declspec(naked) void cockpitTextureFunc()
+{
+	//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+	__asm call ReplaceWildCards
 
-	__asm { //original instructions (adjusted for new var in Stack and reordered to work with local variables)
-		mov EAX, dword ptr[ESP + 0xd4] //Original is + 0xcc
-		lea ECX, [ESP + 0xdc] //Original + 0xd4
-		push EAX //team name
-		mov EAX, cockpitTexture
-		push EAX //filename template
-		push ECX //filename
-		call ReplaceWildCards
-	}
+	//save stack pointer
+	__asm mov espVar, ESP
+
+	//set cockpit asset index
+	initCockpitAssetIndex();
+
+	//set current track index
+	initTrackIndex();
+
+	//set variables
+	initCockpitTextureVariables();
+
+	//calculate new file name
+	calcFileName();
 
 	//save volatile registers
 	RegUtils::saveVolatileRegisters();
 
-	__asm { //save filename from stack
-		mov EAX, dword ptr[ESP]
-		mov fileNameVar, EAX
-	}
+	fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
 
-	//prep file name string for comparison
 	prepFileNameString(fileNameVar);
 
 	__asm { //check if file exists
 		push 0
 		push fileNameVar //filename
-		call MeshFileExists
-		mov meshNotExists, EAX //save comparison result
+		call AssetFileExists
+		mov fileNotExists, EAX //save comparison result
 	}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
-	//fall-back
-	if (meshNotExists)
+	//fall-back to default GP4 file name
+	if (fileNotExists)
 	{
-		_asm { //save variables from stack
-			pop fileNameVar //filename
-			pop fileNameTemplateVar //filename template
-			pop teamNameVar //team name
-			pop driverIdVar //driver 1 / driver 2
-			pop trackIndexVar //track index
-		}
-		_asm { //new stack for fall-back name
-			push 0x1 //default to track 1
-			push driverIdVar //driver 1 / driver 2
-			push teamNameVar //team name
-			push fileNameTemplateVar //filename template
-			push fileNameVar //filename 
-			call ReplaceWildCards
-			mov fileNameVar, ESP //save filename
-		}
+		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+		__asm call ReplaceWildCards
 
-		OutputDebugStringA("Reverting to default texture [");
+		//calculate new file name using GP4 default naming convention
+		calcFileName(true);
 
-		OutputDebugStringA(*(char**)ULongToPtr(fileNameVar));
+		OutputDebugStringA("Reverting to default GP4 file name [");
 
-		OutputDebugStringA("]\n");
-	}
-	_asm { //pop modified stack
-		pop fileNameVar //filename
-		pop fileNameTemplateVar //filename template
-		pop teamNameVar //team name
-		pop driverIdVar //driver 1 / driver 2
-		pop trackIndexVar //track index
+		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
+
+		OutputDebugStringA("]");
 	}
 
-	_asm { //restore stack as it should be
-		push teamNameVar //team name
-		push fileNameTemplateVar //filename template
-		push fileNameVar //filename 
-	}
 	__asm jmp cockpitTextureJumpBackAddress //jump back into regular flow
-
 }
 
 __declspec(naked) void helmetTexture1PerTrack() {
@@ -439,15 +422,15 @@ __declspec(naked) void helmetTexture1PerTrack() {
 	__asm { //check if file exists
 		push 0
 		push fileNameVar //filename
-		call MeshFileExists
-		mov meshNotExists, EAX //save comparison result
+		call AssetFileExists
+		mov fileNotExists, EAX //save comparison result
 	}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
 	//fall-back
-	if (meshNotExists)
+	if (fileNotExists)
 	{
 		_asm { //save variables from stack
 			pop fileNameVar //filename
@@ -519,15 +502,15 @@ __declspec(naked) void helmetTexture2PerTrack() {
 	__asm { //check if file exists
 		push 0
 		push fileNameVar //filename
-		call MeshFileExists
-		mov meshNotExists, EAX //save comparison result
+		call AssetFileExists
+		mov fileNotExists, EAX //save comparison result
 	}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
 	//fall-back
-	if (meshNotExists)
+	if (fileNotExists)
 	{
 		_asm { //save variables from stack
 			pop fileNameVar //filename
@@ -733,7 +716,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			catch (exception ex) {}
 
 			OutputDebugStringA(("AutoName " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
-			
+
 			//Check if per Team
 			try
 			{
@@ -787,7 +770,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					fileNameBuilder << "Track{track}\\";
 				}
 
-				if(assetIndex < 5)
+				if (assetIndex < 5)
 				{
 
 					fileNameBuilder << "car_";
@@ -798,12 +781,12 @@ DWORD WINAPI MainThread(LPVOID param) {
 					}
 
 					fileNameBuilder << filePartialNames[assetIndex];
-					
+
 					if (perDriver[assetIndex] && individualMeshesEnabled[assetIndex])
 					{
 						fileNameBuilder << "{car}";
 					}
-					
+
 					fileNameBuilder << "_";
 
 					if (assetIndex > 1 && assetIndex < 4)
@@ -826,21 +809,21 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 					if (perTeam[assetIndex])
 					{
-						fileNameBuilder << "_%s";
+						fileNameBuilder << "_{teamname}";
 					}
 					if (perDriver[assetIndex])
 					{
-						fileNameBuilder << "%d";
+						fileNameBuilder << "{driver}";
 					}
 					if (perTrack[assetIndex] && !trackFolders)
 					{
-						fileNameBuilder << "_track_%d";
+						fileNameBuilder << "_track_{track}";
 					}
-					if(assetIndex < 7)
+					if (assetIndex < 7)
 					{
 						fileNameBuilder << "_" << 7 - assetIndex;
 					}
-					fileNameBuilder << ".tga";
+					fileNameBuilder << ".tex";
 				}
 
 				fileNames[assetIndex] = fileNameBuilder.str().c_str();
@@ -891,12 +874,8 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	if (cockpitTextureFileName)
 	{
-		//Set new cockpit texture file name per driver and per track
-		strcpy_s(cockpitTextureFileName, 256, "cp_%s_car%d_track_%d.tga");
-		cockpitTexture = PtrToUlong(cockpitTextureFileName);
-
 		//Re-route for cockpit textures
-		MemUtils::rerouteFunction(cockpitTextureSartAddress, PtrToUlong(cockpitTexturePerTrack), VAR_NAME(cockpitTexturePerTrack));
+		MemUtils::rerouteFunction(cockpitTextureSartAddress, PtrToUlong(cockpitTextureFunc), VAR_NAME(cockpitTextureFunc));
 	}
 
 	//Allocate memory for new file name string
