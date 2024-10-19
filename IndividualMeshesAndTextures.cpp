@@ -168,7 +168,10 @@ void calcFileName(bool useDefaultFileName = false)
 		path += gp4ExtensionString;
 	}
 
-	//OutputDebugStringA(path.c_str());
+	if(!useDefaultFileName)
+	{
+		OutputDebugStringA(path.c_str());
+	}
 
 	//The first value in the stack is the string that needs to be replaced
 	char* stackPtr = MemUtils::addressToValue<char*>(espVar);
@@ -191,6 +194,7 @@ void initGenericMeshVariables()
 {
 	//clear map and save all necessary variables/values
 	variables.clear();
+	variables["track"] = to_string(track);
 	variables["lod"] = to_string(MemUtils::addressToValue<int>(espVar + 0x08));
 }
 
