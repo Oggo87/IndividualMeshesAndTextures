@@ -279,7 +279,8 @@ void initIndividualMeshVariables()
 	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x0C));
 	variables["lod"] = to_string(MemUtils::addressToValue<int>(espVar + 0x10));
 	variables["team"] = to_string(MemUtils::addressToValue<int>(espVar + 0x484) + 1); //19E20C
-	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x484 + 0x0C) + 1); //19E218
+	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x774) & 0xFF); //0019E4FC - The driver number is only the first byte of the DWORD 
+	variables["driverindex"] = to_string(MemUtils::addressToValue<int>(espVar + 0x484 + 0x0C) + 1); //19E218
 }
 
 __declspec(naked) void individualMeshFunc()
@@ -341,7 +342,8 @@ void initCockpitTextureVariables()
 	variables["teamname"] = MemUtils::addressToValue<char*>(espVar + 0x08);
 	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x14) + 1);
 	variables["team"] = to_string(MemUtils::addressToValue<int>(espVar + 0x0C) + 1);
-	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x10) + 1);
+	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x2f4) & 0xFF); //The driver number is only the first byte of the DWORD
+	variables["driverindex"] = to_string(MemUtils::addressToValue<int>(espVar + 0x10) + 1);
 }
 
 __declspec(naked) void cockpitTextureFunc()
@@ -404,11 +406,11 @@ void initHelmetTextureVariables()
 	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x14) + 1);
 	variables["team"] = to_string(teamIndex + 1);
 	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x08));
+	variables["driverindex"] = to_string(MemUtils::addressToValue<int>(espVar + 0x10) + 1);
 }
 
 __declspec(naked) void helmetTexture1Func()
 {
-
 	//dummy call to ReplaceWildCards to ensure registries and stack are properly set
 	__asm call ReplaceWildCards
 
