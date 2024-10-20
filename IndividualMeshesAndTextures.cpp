@@ -71,7 +71,6 @@ DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
 
 //Vars and Data Addresses
-DWORD meshIndexStack = 0x0019E208;
 DWORD trackIndex = 0x007AD894;
 DWORD carsFolder = 0x00644EE4;
 DWORD gp4Extension = 0x0063EE08;
@@ -142,6 +141,16 @@ void prepFileNameString(DWORD& fileNameStr)
 	//comparison has to include subfolders within cars.wad (i.e. cars\ in this case)
 	string carsFolderString = MemUtils::addressToPtr<char>(carsFolder);
 	string textureFileNameString = MemUtils::addressToPtr<char>(fileNameStr);
+	string tgaExtension = ".tga";
+	string texExtension = ".tex";
+
+	size_t extensionPos = textureFileNameString.find(tgaExtension);
+
+	if (extensionPos != std::string::npos)
+	{
+		textureFileNameString.replace(extensionPos, tgaExtension.length(), texExtension);
+	}
+
 
 	strcpy_s(textureFileName, (carsFolderString + textureFileNameString).c_str());
 
@@ -168,9 +177,16 @@ void calcFileName(bool useDefaultFileName = false)
 		path += gp4ExtensionString;
 	}
 
-	if(!useDefaultFileName)
+	if(useDefaultFileName)
 	{
-		OutputDebugStringA(path.c_str());
+		OutputDebugStringA("Reverting to default GP4 file name [");
+	}
+
+	OutputDebugStringA(path.c_str());
+
+	if (useDefaultFileName)
+	{
+		OutputDebugStringA("]");
 	}
 
 	//The first value in the stack is the string that needs to be replaced
@@ -180,8 +196,18 @@ void calcFileName(bool useDefaultFileName = false)
 
 }
 
-void initMeshIndex()
+void initMeshIndex(bool individual = false)
 {
+	//0x00000478
+	//0x00000480 for individual meshes
+
+	int meshIndexStack = espVar + 0x478;
+
+	if (individual)
+	{
+		meshIndexStack += 0x08;
+	}
+
 	meshIndex = MemUtils::addressToValue<int>(meshIndexStack);
 }
 
@@ -239,12 +265,6 @@ __declspec(naked) void genericMeshFunc()
 
 		//calculate new file name using GP4 default naming convention
 		calcFileName(true);
-
-		OutputDebugStringA("Reverting to default GP4 file name [");
-
-		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
-
-		OutputDebugStringA("]");
 	}
 
 	__asm jmp genericMeshJumpBackAddress //jump back into regular flow
@@ -271,7 +291,7 @@ __declspec(naked) void individualMeshFunc()
 	__asm mov espVar, ESP
 
 	//set current mesh index
-	initMeshIndex();
+	initMeshIndex(true);
 
 	//set current track index
 	initTrackIndex();
@@ -303,12 +323,6 @@ __declspec(naked) void individualMeshFunc()
 
 		//calculate new file name using GP4 default naming convention
 		calcFileName(true);
-
-		OutputDebugStringA("Reverting to default GP4 file name [");
-
-		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
-
-		OutputDebugStringA("]");
 	}
 
 	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
@@ -375,12 +389,6 @@ __declspec(naked) void cockpitTextureFunc()
 
 		//calculate new file name using GP4 default naming convention
 		calcFileName(true);
-
-		OutputDebugStringA("Reverting to default GP4 file name [");
-
-		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
-
-		OutputDebugStringA("]");
 	}
 
 	__asm jmp cockpitTextureJumpBackAddress //jump back into regular flow
@@ -444,12 +452,6 @@ __declspec(naked) void helmetTexture1Func()
 
 		//calculate new file name using GP4 default naming convention
 		calcFileName(true);
-
-		OutputDebugStringA("Reverting to default GP4 file name [");
-
-		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
-
-		OutputDebugStringA("]");
 	}
 
 	__asm jmp helmetTexture1JumpBackAddress //jump back into regular flow
@@ -501,12 +503,6 @@ __declspec(naked) void helmetTexture2Func()
 
 		//calculate new file name using GP4 default naming convention
 		calcFileName(true);
-
-		OutputDebugStringA("Reverting to default GP4 file name [");
-
-		OutputDebugStringA(MemUtils::addressToValue<char*>(espVar));
-
-		OutputDebugStringA("]");
 	}
 
 	__asm jmp helmetTexture2JumpBackAddress //jump back into regular flow
