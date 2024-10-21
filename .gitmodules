@@ -1,0 +1,6 @@
+[submodule "IniLib"]
+	path = IniLib
+	url = https://github.com/Oggo87/IniLib
+[submodule "GP4MemLib"]
+	path = GP4MemLib
+	url = https://github.com/Oggo87/GP4MemLib
