@@ -1,6 +1,6 @@
 # Individual Meshes And Textures
 
-A DLL to enable per-track meshes and textures in Grand Prix 4
+A DLL to enable customisable loading for meshes and textures in Grand Prix 4
 
 ## Description
 
