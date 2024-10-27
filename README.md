@@ -119,7 +119,7 @@ Available for all assets, `AutoName` works in conjunction with `IndividualMeshes
 
 `AutoName` follows the convention of original GP4 files, trying to keep it as close as possible to the original file names, including the little differences like `LOD_0` for Cars and Wheels and `00` for Helmets and Cockpits.
 
-See [`PerTrack`](#PerTeam,-PerDriver,-PerTrack) for some more details, it is recommended to check the GPxPatch debug log for the asset name(s) being loaded.
+See [`PerTrack`](#PerTeam-PerDriver-PerTrack) for some more details, it is recommended to check the GPxPatch debug log for the asset name(s) being loaded.
 
 #### LOD0Only
 Available for mesh entries only, overrides the corresponding entry in the [LOD Table](#LOD-Table), forcing to use only LOD 0.
@@ -182,13 +182,46 @@ cars\track15\car_helmet_00.gp4
 ```
 
 #### Tracks
-Available for all assets, this setting allows some additional control when using per-track assets, either with the [`PerTrack`](#PerTeam,-PerDriver,-PerTrack) setting or the manual `{track}` variable. Acknowledging that not all tracks might need their own unique asset, with this setting is possible to specify which track version to use for each track slot. If less than 17 entries are present, track 1 will be used for the missing track slots.
+Available for all assets, this setting allows some additional control when using per-track assets, either with the [`PerTrack`](#PerTeam-PerDriver-PerTrack) setting or the manual `{track}` variable. Acknowledging that not all tracks might need their own unique asset, with this setting is possible to specify a fall-back track index for each track slot. If an asset isn't found for the track slot, the asset from the specified fall-back track slot will be attempted to be loaded, before reverting back to GP4's default. If less than 17 entries are present, track 1 will be used for the missing track slots.
+
+Example - Per-Team Helmet mesh, with Track Folders enabled and all fall-back tracks set to 1
+
+```ini
+[Settings]
+TrackFolders = true
+
+[Cars]
+AutoName = true
+PerTrack = true
+Tracks = 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+```
+
+Ferrari's first car (LOD 0) at Monza will be loaded as follows
+
+```
+cars\track15\car_ferrari_car1_lod_0.gp4
+```
+
+If the asset doesn't exist, the fall-back track slot will be used
+
+```
+cars\track1\car_ferrari_car1_lod_0.gp4
+```
+
+If the fall-back asset also doesn't exist, GP4's default file will be used
+
+```
+cars\car_ferrari_car1_lod_0.gp4
+```
 
 ## Authors
 
 Diego "Öggo" Noriega
 
 ## Version History
+
+* 1.1
+    * Update - Fall-back track slots
 
 * 1.0
     * First Release
