@@ -211,9 +211,16 @@ void initMeshIndex(bool individual = false)
 	meshIndex = MemUtils::addressToValue<int>(meshIndexStack);
 }
 
-void initTrackIndex()
+void initTrackIndex(bool fallback = false)
 {
-	track = tracks[meshIndex][MemUtils::addressToValue<int>(trackIndex)];
+	if (fallback)
+	{
+		track = tracks[meshIndex][MemUtils::addressToValue<int>(trackIndex)];
+	}
+	else
+	{
+		track = MemUtils::addressToValue<int>(trackIndex) + 1;
+	}
 }
 
 void initGenericMeshVariables()
@@ -256,6 +263,36 @@ __declspec(naked) void genericMeshFunc()
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
+
+	//fall-back to specified track index
+	if (fileNotExists)
+	{
+		//set fall-back track index
+		initTrackIndex(true);
+
+		//set variables
+		initGenericMeshVariables();
+
+		OutputDebugStringA("Reverting to default track [");
+
+		//calculate new file name
+		calcFileName();
+
+		OutputDebugStringA("]");
+
+		//save volatile registers
+		RegUtils::saveVolatileRegisters();
+
+		__asm { //check if file exists
+			push 0
+			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+			call AssetFileExists
+			mov fileNotExists, EAX //save comparison result
+		}
+
+		//restore volatile registers
+		RegUtils::restoreVolatileRegisters();
+	}
 
 	//fall-back to default GP4 file name
 	if (fileNotExists)
@@ -315,6 +352,36 @@ __declspec(naked) void individualMeshFunc()
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
+
+	//fall-back to specified track index
+	if (fileNotExists)
+	{
+		//set fall-back track index
+		initTrackIndex(true);
+
+		//set variables
+		initIndividualMeshVariables();
+
+		OutputDebugStringA("Reverting to default track [");
+
+		//calculate new file name
+		calcFileName();
+
+		OutputDebugStringA("]");
+
+		//save volatile registers
+		RegUtils::saveVolatileRegisters();
+
+		__asm { //check if file exists
+			push 0
+			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+			call AssetFileExists
+			mov fileNotExists, EAX //save comparison result
+		}
+
+		//restore volatile registers
+		RegUtils::restoreVolatileRegisters();
+	}
 
 	//fall-back to default GP4 file name
 	if (fileNotExists)
@@ -383,6 +450,40 @@ __declspec(naked) void cockpitTextureFunc()
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
+	//fall-back to specified track index
+	if (fileNotExists)
+	{
+		//set fall-back track index
+		initTrackIndex(true);
+
+		//set variables
+		initCockpitTextureVariables();
+
+		OutputDebugStringA("Reverting to default track [");
+
+		//calculate new file name
+		calcFileName();
+
+		OutputDebugStringA("]");
+
+		//save volatile registers
+		RegUtils::saveVolatileRegisters();
+
+		fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+		prepFileNameString(fileNameVar);
+
+		__asm { //check if file exists
+			push 0
+			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+			call AssetFileExists
+			mov fileNotExists, EAX //save comparison result
+		}
+
+		//restore volatile registers
+		RegUtils::restoreVolatileRegisters();
+	}
+
 	//fall-back to default GP4 file name
 	if (fileNotExists)
 	{
@@ -446,6 +547,40 @@ __declspec(naked) void helmetTexture1Func()
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
 
+	//fall-back to specified track index
+	if (fileNotExists)
+	{
+		//set fall-back track index
+		initTrackIndex(true);
+
+		//set variables
+		initHelmetTextureVariables();
+
+		OutputDebugStringA("Reverting to default track [");
+
+		//calculate new file name
+		calcFileName();
+
+		OutputDebugStringA("]");
+
+		//save volatile registers
+		RegUtils::saveVolatileRegisters();
+
+		fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+		prepFileNameString(fileNameVar);
+
+		__asm { //check if file exists
+			push 0
+			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+			call AssetFileExists
+			mov fileNotExists, EAX //save comparison result
+		}
+
+		//restore volatile registers
+		RegUtils::restoreVolatileRegisters();
+	}
+
 	//fall-back to default GP4 file name
 	if (fileNotExists)
 	{
@@ -496,6 +631,40 @@ __declspec(naked) void helmetTexture2Func()
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
+
+	//fall-back to specified track index
+	if (fileNotExists)
+	{
+		//set fall-back track index
+		initTrackIndex(true);
+
+		//set variables
+		initHelmetTextureVariables();
+
+		OutputDebugStringA("Reverting to default track [");
+
+		//calculate new file name
+		calcFileName();
+
+		OutputDebugStringA("]");
+
+		//save volatile registers
+		RegUtils::saveVolatileRegisters();
+
+		fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+		prepFileNameString(fileNameVar);
+
+		__asm { //check if file exists
+			push 0
+			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+			call AssetFileExists
+			mov fileNotExists, EAX //save comparison result
+		}
+
+		//restore volatile registers
+		RegUtils::restoreVolatileRegisters();
+	}
 
 	//fall-back to default GP4 file name
 	if (fileNotExists)
