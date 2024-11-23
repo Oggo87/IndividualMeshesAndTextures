@@ -99,6 +99,7 @@ These sections are, more specifically:
 * Helmets
 * Cockpits
 * Cars
+* Collision Mesh
 * Helmet Textures
 * Cockpit Textures
 
@@ -138,14 +139,14 @@ Available for all assets, this setting allows to specify a custom file name patt
 7 `{variables}` are available to use in the file names, enclosed in curly brackets:
 
 * `{track}` - Available for all assets. Indexed 1 through 17
-* `{team}` - Available for all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is not enabled for the corresponding mesh. Indexed 1 through 11.
-* `{teamname}` - Available for all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh.
+* `{team}` - Available for collision mesh and all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh. Indexed 1 through 11.
+* `{teamname}` - Available for collision mesh and all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh.
 * `{car}` - Available for all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh. Indexed 1 and 2 for first and second car of the team.
-* `{driver}` - Available for all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh. Indexed 1 through 12 and 14 through 23 (as for original GP4 helmet textures, following 2001 car numbering)
-* `{driverindex}` - Available for all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh. Indexed 1 through 22.
+* `{driver}` - Available for collision mesh and all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh. Indexed 1 through 12 and 14 through 23 (as for original GP4 helmet textures, following 2001 car numbering)
+* `{driverindex}` - Available for collision mesh and all textures, available for meshes only when [`IndividualMeshes`](#Individual-Meshes) is enabled for the corresponding mesh. Indexed 1 through 22.
 * `{lod}` - Available for for meshes only, follows the corresponding entry in the [LOD Table](#LOD-Table)
 
-Please note that texture entries need to have the extension explicitly written as either `.tex` or `.tga`.
+Please note that collision mesh and texture entries need to have the extension explicitly written as either `.tex` or `.tga` for textures and `.ct` for collision mesh
 
 Example - Per-Team Helmet mesh and Per-Track Helmet Textures
 
@@ -219,6 +220,9 @@ cars\car_ferrari_car1_lod_0.gp4
 Diego "Öggo" Noriega
 
 ## Version History
+
+* 1.1
+    * Update - Added collision mesh assets
 
 * 1.1
     * Update - Fall-back track slots

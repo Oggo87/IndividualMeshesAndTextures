@@ -102,8 +102,6 @@ int track;
 
 string collisionMesh = "";
 
-char fileNameString[64] = "";
-
 DWORD fileNotExists = false;
 
 char textureFileName[128] = "";
