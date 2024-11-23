@@ -17,6 +17,7 @@ enum ASSET_ID
 	HELMETS,
 	COCKPITS,
 	CARS,
+	COLLISION_MESH,
 	HELMET_1,
 	HELMET_2,
 	COCKPIT_TEX
@@ -25,19 +26,19 @@ enum ASSET_ID
 bool trackFolders = false;
 
 //Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
-bool individualMeshesEnabled[] = { false, false, false, false, true };
+bool individualMeshesEnabled[] = { false, false, false, false, true, true };
 bool lod0Only[] = { false, false, false, false, false };
-bool perTeam[] = { false, false, false, false, false, false, false, true };
-bool perDriver[] = { false, false, false, false, true, true, true, false };
-bool perTrack[] = { false, false, false, false, false, false, false, false };
+bool perTeam[] = { false, false, false, false, false, false, false, false, true };
+bool perDriver[] = { false, false, false, false, true, false, true, true, false };
+bool perTrack[] = { false, false, false, false, false, false, false, false, false };
 
 vector<int> defaultTracks = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17 };
-vector<int> tracks[8];
+vector<int> tracks[9];
 
-string assetNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars", "Helmet 2", "Helmet 1", "Cockpit" };
-string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "HelmetTextures", "HelmetTextures", "CockpitTextures" };
-string defaultFileNames[] = { "CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "Driver{driver}_1.tex", "Driver{driver}_2.tex", "cp_{teamname}.tex" };
-string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "Driver", "Driver", "cp" };
+string assetNames[] = { "Front Wheels", "Rear Wheels", "Helmets", "Cockpits", "Cars", "Collision Mesh", "Helmet 2", "Helmet 1", "Cockpit" };
+string assetIDs[] = { "FrontWheels", "RearWheels", "Helmets", "Cockpits", "Cars", "CollisionMesh", "HelmetTextures", "HelmetTextures", "CockpitTextures" };
+string defaultFileNames[] = { "CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{lod}", "CAR_Helmet_0{lod}", "CAR_Cockpit_0{lod}", "CAR_{teamname}_CAR{car}_LOD_{lod}", "car_collision_mesh.ct", "Driver{driver}_1.tex", "Driver{driver}_2.tex", "cp_{teamname}.tex" };
+string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "collision_mesh", "Driver", "Driver", "cp"};
 
 //Array of mesh and textures filenames
 string fileNames[8];
@@ -56,6 +57,7 @@ DWORD individualMeshStartAddress = 0x00487085;
 DWORD cockpitTextureSartAddress = 0x00486b8b;
 DWORD helmetTexture1StartAddress = 0x00486c1b;
 DWORD helmetTexture2StartAddress = 0x00486c5c;
+DWORD collisionMeshStartAddress = 0x00485feb;
 
 DWORD cockpitMirrorsSingleStartAddress = 0x00485e55;
 DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
@@ -66,6 +68,7 @@ DWORD individualMeshJumpBackAddress = 0x0048708A;
 DWORD cockpitTextureJumpBackAddress = 0x00486b90;
 DWORD helmetTexture1JumpBackAddress = 0x00486c20;
 DWORD helmetTexture2JumpBackAddress = 0x00486c61;
+DWORD collisionMeshJumpBackAddress = 0x00485ff0;
 
 DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
@@ -94,10 +97,10 @@ DWORD UnkMaterialFunction = 0x00459290;
 //Storage Variables
 DWORD eaxVar, ecxVar, edxVar, espVar;
 DWORD fileNameVar;
-int meshIndex;
+int assetIndex;
 int track;
 
-char fileNameString[64] = "";
+string collisionMesh = "";
 
 DWORD fileNotExists = false;
 
@@ -165,14 +168,14 @@ void calcFileName(bool useDefaultFileName = false)
 
 	//Compose file path, including variables
 	string path = "";
-	if (meshIndex < 5)
+	if (assetIndex <= ASSET_ID::COLLISION_MESH)
 	{
 		path += carsFolderString;
 	}
 
-	path += replaceVariables(useDefaultFileName ? defaultFileNames[meshIndex] : fileNames[meshIndex], variables);
+	path += replaceVariables(useDefaultFileName ? defaultFileNames[assetIndex] : fileNames[assetIndex], variables);
 
-	if (meshIndex < 5)
+	if (assetIndex <= ASSET_ID::CARS)
 	{
 		path += gp4ExtensionString;
 	}
@@ -189,10 +192,18 @@ void calcFileName(bool useDefaultFileName = false)
 		OutputDebugStringA("]");
 	}
 
-	//The first value in the stack is the string that needs to be replaced
-	char* stackPtr = MemUtils::addressToValue<char*>(espVar);
+	if (assetIndex == ASSET_ID::COLLISION_MESH)
+	{
+		//save path to collision mesh variable
+		collisionMesh = path;
+	}
+	else
+	{
+		//The first value in the stack is the string that needs to be replaced
+		char* stackPtr = MemUtils::addressToValue<char*>(espVar);
 
-	memcpy(stackPtr, path.c_str(), path.size() + 1);
+		memcpy(stackPtr, path.c_str(), path.size() + 1);
+	}
 
 }
 
@@ -208,14 +219,14 @@ void initMeshIndex(bool individual = false)
 		meshIndexStack += 0x08;
 	}
 
-	meshIndex = MemUtils::addressToValue<int>(meshIndexStack);
+	assetIndex = MemUtils::addressToValue<int>(meshIndexStack);
 }
 
 void initTrackIndex(bool fallback = false)
 {
 	if (fallback)
 	{
-		track = tracks[meshIndex][MemUtils::addressToValue<int>(trackIndex)];
+		track = tracks[assetIndex][MemUtils::addressToValue<int>(trackIndex)];
 	}
 	else
 	{
@@ -396,9 +407,9 @@ __declspec(naked) void individualMeshFunc()
 	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
 }
 
-void initTextureAssetIndex(ASSET_ID index)
+void initAssetIndex(ASSET_ID index)
 {
-	meshIndex = index;
+	assetIndex = index;
 }
 
 void initCockpitTextureVariables()
@@ -422,7 +433,7 @@ __declspec(naked) void cockpitTextureFunc()
 	__asm mov espVar, ESP
 
 	//set cockpit asset index
-	initTextureAssetIndex(COCKPIT_TEX);
+	initAssetIndex(COCKPIT_TEX);
 
 	//set current track index
 	initTrackIndex();
@@ -518,8 +529,8 @@ __declspec(naked) void helmetTexture1Func()
 	//save stack pointer
 	__asm mov espVar, ESP
 
-	//set cockpit asset index
-	initTextureAssetIndex(HELMET_1);
+	//set helmet 1 asset index
+	initAssetIndex(HELMET_1);
 
 	//set current track index
 	initTrackIndex();
@@ -603,8 +614,8 @@ __declspec(naked) void helmetTexture2Func()
 	//save stack pointer
 	__asm mov espVar, ESP
 
-	//set cockpit asset index
-	initTextureAssetIndex(HELMET_2);
+	//set helmet 2 asset index
+	initAssetIndex(HELMET_2);
 
 	//set current track index
 	initTrackIndex();
@@ -733,6 +744,94 @@ skip:
 	__asm jmp cockpitMirrorsPerCarJumpBackAddress //jump back into regular flow
 }
 
+void initCollisionMeshVariables()
+{
+	int teamIndex = MemUtils::addressToValue<int>(espVar + 0x04);
+	//clear map and save all necessary variables/values
+	variables.clear();
+	variables["track"] = to_string(track);
+	variables["teamname"] = MemUtils::addressToPtr<char>(arrTeamNames + (teamIndex * 0x20));
+	variables["car"] = to_string(MemUtils::addressToValue<int>(espVar + 0x0c) + 1);
+	variables["team"] = to_string(teamIndex + 1);
+	variables["driver"] = to_string(MemUtils::addressToValue<int>(espVar + 0x2EC) & 0xFF); //19E4DC - 19E1F0 - The driver number is only the first byte of the DWORD 
+	variables["driverindex"] = to_string(MemUtils::addressToValue<int>(espVar + 0x08) + 1);
+}
+
+__declspec(naked) void collisionMeshFunc()
+{
+	//dummy push of original string
+	//__asm push 0x644e44
+
+	//save stack pointer
+	__asm mov espVar, ESP
+
+	//set collision mesh asset index
+	initAssetIndex(COLLISION_MESH);
+
+	//set current track index
+	initTrackIndex();
+
+	//set variables
+	initCollisionMeshVariables();
+
+	//calculate new file name
+	calcFileName();
+
+	//save volatile registers
+	RegUtils::saveVolatileRegisters();
+
+	__asm { //check if file exists
+		push 0
+		push collisionMesh //filename
+		call AssetFileExists
+		mov fileNotExists, EAX //save comparison result
+	}
+
+	//restore volatile registers
+	RegUtils::restoreVolatileRegisters();
+
+	//fall-back to specified track index
+	if (fileNotExists)
+	{
+		//set fall-back track index
+		initTrackIndex(true);
+
+		//set variables
+		initCollisionMeshVariables();
+
+		OutputDebugStringA("Reverting to default track [");
+
+		//calculate new file name
+		calcFileName();
+
+		OutputDebugStringA("]");
+
+		//save volatile registers
+		RegUtils::saveVolatileRegisters();
+
+		__asm { //check if file exists
+			push 0
+			push collisionMesh //filename
+			call AssetFileExists
+			mov fileNotExists, EAX //save comparison result
+		}
+
+		//restore volatile registers
+		RegUtils::restoreVolatileRegisters();
+	}
+
+	//fall-back to default GP4 file name
+	if (fileNotExists)
+	{
+		//calculate new file name using GP4 default naming convention
+		calcFileName(true);
+	}
+	//push new collision mesh file name
+	__asm push collisionMesh
+
+	__asm jmp collisionMeshJumpBackAddress //jump back into regular flow
+}
+
 DWORD WINAPI MainThread(LPVOID param) {
 
 	//Utility string builders
@@ -751,7 +850,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 	if (iniSettings.load(iniFilePath))
 	{
 
-		for (int assetIndex = 0; assetIndex < 8; assetIndex++)
+		for (int assetIndex = 0; assetIndex < 9; assetIndex++)
 		{
 			try
 			{
@@ -891,7 +990,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					fileNameBuilder << "Track{track}\\";
 				}
 
-				if (assetIndex < 5)
+				if (assetIndex < ASSET_ID::HELMET_1)
 				{
 
 					fileNameBuilder << "car_";
@@ -908,20 +1007,23 @@ DWORD WINAPI MainThread(LPVOID param) {
 						fileNameBuilder << "{car}";
 					}
 
-					fileNameBuilder << "_";
-
-					if (assetIndex > 1 && assetIndex < 4)
+					if (assetIndex > ASSET_ID::REAR_WHEELS && assetIndex < ASSET_ID::CARS)
 					{
-						fileNameBuilder << "0{lod}";
+						fileNameBuilder << "_0{lod}";
 					}
-					else
+					else if (assetIndex < ASSET_ID::COLLISION_MESH)
 					{
-						fileNameBuilder << "LOD_{lod}";
+						fileNameBuilder << "_LOD_{lod}";
 					}
 
 					if (perTrack[assetIndex] && !trackFolders)
 					{
 						fileNameBuilder << "_track_{track}";
+					}
+
+					if (assetIndex == ASSET_ID::COLLISION_MESH)
+					{
+						fileNameBuilder << ".ct";
 					}
 				}
 				else
@@ -940,9 +1042,9 @@ DWORD WINAPI MainThread(LPVOID param) {
 					{
 						fileNameBuilder << "_track_{track}";
 					}
-					if (assetIndex < 7)
+					if (assetIndex < ASSET_ID::COCKPITS)
 					{
-						fileNameBuilder << "_" << assetIndex - 4;
+						fileNameBuilder << "_" << assetIndex - (ASSET_ID::HELMET_1 - 1);
 					}
 					fileNameBuilder << ".tex";
 				}
@@ -954,11 +1056,11 @@ DWORD WINAPI MainThread(LPVOID param) {
 			else //If not, load the specified file name
 			{
 				string key = "FileName";
-				if (assetIndex == 5)
+				if (assetIndex == ASSET_ID::HELMET_1)
 				{
 					key += "1";
 				}
-				else if (assetIndex == 6)
+				else if (assetIndex == ASSET_ID::HELMET_2)
 				{
 					key += "2";
 				}
@@ -1023,6 +1125,9 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	//Re-route for helmet texture 2
 	MemUtils::rerouteFunction(helmetTexture2StartAddress, PtrToUlong(helmetTexture2Func), VAR_NAME(helmetTexture2Func));
+
+	//Re-route for collision mesh
+	MemUtils::rerouteFunction(collisionMeshStartAddress, PtrToUlong(collisionMeshFunc), VAR_NAME(collisionMeshFunc));
 
 	return 0;
 }
