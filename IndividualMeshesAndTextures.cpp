@@ -10,6 +10,11 @@ using namespace std;
 using namespace GP4MemLib;
 using namespace IniLib;
 
+struct CGP4MeshShaderData {
+	DWORD* shader;
+	DWORD params[8];
+};
+
 enum ASSET_ID
 {
 	FRONT_WHEELS,
@@ -58,6 +63,8 @@ DWORD cockpitTextureSartAddress = 0x00486b8b;
 DWORD helmetTexture1StartAddress = 0x00486c1b;
 DWORD helmetTexture2StartAddress = 0x00486c5c;
 DWORD collisionMeshStartAddress = 0x00485feb;
+DWORD cockpitVisorStartAddress = 0x004858f9;
+DWORD cockpitVisorStartAddress2 = 0x00487a61;
 
 DWORD cockpitMirrorsSingleStartAddress = 0x00485e55;
 DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
@@ -69,6 +76,8 @@ DWORD cockpitTextureJumpBackAddress = 0x00486b90;
 DWORD helmetTexture1JumpBackAddress = 0x00486c20;
 DWORD helmetTexture2JumpBackAddress = 0x00486c61;
 DWORD collisionMeshJumpBackAddress = 0x00485ff0;
+DWORD cockpitVisorJumpBackAddress = 0x004858fe;
+DWORD cockpitVisorJumpBackAddress2 = 0x00488a0b;
 
 DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
@@ -85,14 +94,23 @@ DWORD cockpitTexture = 0x644d94;
 DWORD helmetTexture1 = 0x644d84;
 DWORD helmetTexture2 = 0x644d74;
 
+DWORD cockpitMesh = 0x00a4d5ec;
+
 //Function Addresses
 DWORD ReplaceWildCards = 0x005DB088;
 DWORD AssetFileExists = 0x0046af40;
+
+DWORD GetObjectIndexByName = 0x00457200;
+DWORD GetShader = 0x0045ee70;
+DWORD ApplyShaderToObject = 0x00457260;
+DWORD SetCockpitMirrorShaderParameters = 0x00485080;
 
 DWORD LoadCarRelatedMesh = 0x00486f60;
 DWORD UnkFunction1 = 0x00470d70;
 DWORD UnkFunction2 = 0x0045e770;
 DWORD UnkMaterialFunction = 0x00459290;
+DWORD meth_0x457660 = 0x00457660;
+DWORD meth_0x459600 = 0x00459600;
 
 //Storage Variables
 DWORD eaxVar, ecxVar, edxVar, espVar;
@@ -105,6 +123,12 @@ string collisionMesh = "";
 DWORD fileNotExists = false;
 
 char textureFileName[128] = "";
+
+//Cockpit Glass Object Variables
+string visorObjectName = "";
+int visorObjectIndex = -1;
+DWORD visorColour = 0x808080;
+float transparencyMultiplier = 0.5;
 
 string replaceVariables(const string& input, const map<string, string>& replacements) {
 	string result = input;
@@ -832,6 +856,177 @@ __declspec(naked) void collisionMeshFunc()
 	__asm jmp collisionMeshJumpBackAddress //jump back into regular flow
 }
 
+void SetCockpitVisorShaderParameters()
+{
+	byte* cockpitMeshStruct = GP4MemLib::MemUtils::addressToValue<byte*>(cockpitMesh);
+	int* numCockpitObjects = (int*)(cockpitMeshStruct + 0x1b0);
+
+	//OutputDebugStringA(("Num Cockpit Objects " + std::to_string(*numCockpitObjects)).c_str());
+
+	if (visorObjectIndex < *numCockpitObjects)
+	{
+		byte* arrMeshObjects = cockpitMeshStruct + 0x1b4;
+		DWORD* visorObject = (DWORD*)(*(DWORD*)(arrMeshObjects + visorObjectIndex * 0x34));
+
+		//OutputDebugStringA(("Visor Object Address " + std::to_string((DWORD)visorObject)).c_str());
+
+		int* visorObjectIndex = (int*)(&visorObject[3]);
+
+		//OutputDebugStringA(("Visor Object Index " + std::to_string(*visorObjectIndex)).c_str());
+
+		DWORD** visorObjectData = (DWORD**)(visorObject[2]);
+		CGP4MeshShaderData* arrayShaderData = (CGP4MeshShaderData*)visorObjectData[5];
+
+		//OutputDebugStringA(("Visor Object Shader Params Address " + std::to_string((DWORD)arrayShaderData[*visorObjectIndex].params)).c_str());
+
+		//arrayShaderData[*visorObjectIndex].params[0] = 0x808080; //Colour
+		std::memcpy(&arrayShaderData[*visorObjectIndex].params[0], &visorColour, 4);
+
+		//arrayShaderData[*visorObjectIndex].params[1] = (float)0.5; //Multiplier
+		std::memcpy(&arrayShaderData[*visorObjectIndex].params[1], &transparencyMultiplier, 4);
+
+		arrayShaderData[*visorObjectIndex].params[2] = 0xffffff; //Unk
+
+		//arrayShaderData[*visorObjectIndex].params[3] = (float)0.5; //Multiplier
+		std::memcpy(&arrayShaderData[*visorObjectIndex].params[3], &transparencyMultiplier, 4);
+
+		arrayShaderData[*visorObjectIndex].params[4] = GP4MemLib::MemUtils::addressToValue<DWORD>(0x00644274); //Unk
+
+		arrayShaderData[*visorObjectIndex].params[5] = 0; //Unk (Reflections?)
+
+	}
+
+	/* Assembly code for visor object
+
+	__asm {
+		//get cockpit mesh
+		mov EDI, cockpitMesh
+		mov EDI, dword ptr[EDI]
+
+		//get number of mesh objects
+		mov EDX, dword ptr[EDI + 0x1b0]
+
+		//get cockpit visor object index
+		mov EAX, visorObjectIndex
+
+		cmp EAX, EDX
+
+		//skip if index > number of objects
+		jnc InvalidIndex
+
+		//get mesh objects array
+
+		lea ECX, [EAX + EAX * 0x2]
+		lea EAX, [EAX + ECX * 0x4]
+
+		mov ECX, dword ptr[EDI + 0x1b4]
+
+		//get pointer to object
+		lea ECX, [ECX + EAX * 0x4]
+
+		//get pointer to shader parameters
+		mov EAX, dword ptr[ECX + 0xc]
+		mov ECX, dword ptr[ECX + 0x8]
+		mov ECX, dword ptr[ECX + 0x14]
+		lea EAX, [EAX + EAX * 0x8]
+		lea ECX, [ECX + EAX * 0x4 + 0x4]
+
+		//set parameters
+		//param 0 = colour
+		mov dword ptr[ECX], 0x808080
+
+		//param 1
+		mov dword ptr[ECX + 0x4], 0x3f000000 //0x3e99999a //Multiplier
+
+		//param 2
+		mov dword ptr[ECX + 0x8], 0xffffff
+
+		//param 3
+		mov dword ptr[ECX + 0xc], 0x3f000000 //0x3f800000 //Multiplier
+
+		//param 4
+		mov EDX, dword ptr[0x00644274]
+		mov EDX, dword ptr[EDX]
+		mov dword ptr[ECX + 0x10], EDX
+
+		//param 5
+		mov dword ptr[ECX + 0x14], 0x0
+	}
+InvalidIndex:
+
+	//set pointer to 0
+	__asm xor ECX, ECX
+	*/
+}
+
+__declspec(naked) void cockpitVisorFunc()
+{
+	__asm {
+		//set mesh
+		mov ECX, dword ptr[EDI + ESI * 0x4 + 0x4]
+
+		//set name of object to be visor
+		//push visorObjectName
+		lea EBP, visorObjectName
+		push EBP
+
+		//get index of visor object, it will be in EAX
+		call GetObjectIndexByName
+
+		//save index in EBP
+		mov EBP, EAX
+
+		//skip if object not found
+		cmp EBP, -1
+
+		//save index into variable
+		mov visorObjectIndex, EBP
+
+		jz noObjectFound
+
+		//if found
+		//set flag
+		push 0x1
+
+		//set object index
+		push EBP
+
+		//get the shader (it will be in EAX)
+		push 0x11
+
+		call GetShader
+
+		//set mesh (this)
+		mov ECX, dword ptr[EDI + ESI * 0x4 + 0x4]
+
+		//advance stack
+		add ESP, 0x4
+
+		//set shader
+		push EAX
+
+		//apply shader
+		call ApplyShaderToObject
+	}
+
+	SetCockpitVisorShaderParameters();
+
+noObjectFound:
+
+	__asm call SetCockpitMirrorShaderParameters //original function call
+		
+	__asm jmp cockpitVisorJumpBackAddress //jump back into regular flow
+}
+
+__declspec(naked) void cockpitVisorFunc2()
+{
+	SetCockpitVisorShaderParameters();
+
+	__asm call SetCockpitMirrorShaderParameters //original function call
+
+	__asm jmp cockpitVisorJumpBackAddress2 //jump back into regular flow
+}
+
 DWORD WINAPI MainThread(LPVOID param) {
 
 	//Utility string builders
@@ -1110,6 +1305,14 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	//Re-route for cockpit mirrors per car
 	MemUtils::rerouteFunction(cockpitMirrorsPerCarStartAddress, PtrToUlong(applyCockpitMirrorsPerCar), VAR_NAME(applyCockpitMirrorsPerCar));
+
+	visorObjectName = "Cockpit";
+
+	//Re-route for cockpit visor
+	MemUtils::rerouteFunction(cockpitVisorStartAddress, PtrToUlong(cockpitVisorFunc), VAR_NAME(cockpitVisorFunc));
+
+	//Re-route for cockpit visor 2
+	MemUtils::rerouteFunction(cockpitVisorStartAddress2, PtrToUlong(cockpitVisorFunc2), VAR_NAME(cockpitVisorFunc2));
 
 	//Re-route for generic meshes
 	MemUtils::rerouteFunction(genericMeshStartAddress, PtrToUlong(genericMeshFunc), VAR_NAME(genericMeshFunc));
