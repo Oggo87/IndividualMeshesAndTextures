@@ -29,6 +29,7 @@ enum ASSET_ID
 };
 
 bool trackFolders = false;
+bool cockpitVisor = false;
 
 //Enable/Disable Individual Meshes for Front Wheels, Rear Wheels, Helmets and Cockpits
 bool individualMeshesEnabled[] = { false, false, false, false, true, true };
@@ -125,8 +126,9 @@ DWORD fileNotExists = false;
 char textureFileName[128] = "";
 
 //Cockpit Glass Object Variables
-string visorObjectName = "";
+string visorObjectName = "Visor";
 int visorObjectIndex = -1;
+std::vector<short> visorBytes = { 128, 128, 128, 0 };
 DWORD visorColour = 0x808080;
 float transparencyMultiplier = 0.5;
 
@@ -863,10 +865,13 @@ void SetCockpitVisorShaderParameters()
 
 	//OutputDebugStringA(("Num Cockpit Objects " + std::to_string(*numCockpitObjects)).c_str());
 
-	if (visorObjectIndex < *numCockpitObjects)
+	if (visorObjectIndex > -1 && visorObjectIndex < *numCockpitObjects)
 	{
 		byte* arrMeshObjects = cockpitMeshStruct + 0x1b4;
-		DWORD* visorObject = (DWORD*)(*(DWORD*)(arrMeshObjects + visorObjectIndex * 0x34));
+
+		//OutputDebugStringA(("Object Array Address " + std::to_string((DWORD)arrMeshObjects)).c_str());
+
+		DWORD* visorObject = (DWORD*)(*(DWORD*)arrMeshObjects + visorObjectIndex * 0x34);
 
 		//OutputDebugStringA(("Visor Object Address " + std::to_string((DWORD)visorObject)).c_str());
 
@@ -881,6 +886,7 @@ void SetCockpitVisorShaderParameters()
 
 		//arrayShaderData[*visorObjectIndex].params[0] = 0x808080; //Colour
 		std::memcpy(&arrayShaderData[*visorObjectIndex].params[0], &visorColour, 4);
+		//std::memcpy(&arrayShaderData[*visorObjectIndex].params[0], visorBytes, 4);
 
 		//arrayShaderData[*visorObjectIndex].params[1] = (float)0.5; //Multiplier
 		std::memcpy(&arrayShaderData[*visorObjectIndex].params[1], &transparencyMultiplier, 4);
@@ -1045,15 +1051,64 @@ DWORD WINAPI MainThread(LPVOID param) {
 	if (iniSettings.load(iniFilePath))
 	{
 
-		for (int assetIndex = 0; assetIndex < 9; assetIndex++)
+		try
+		{
+			trackFolders = iniSettings["Settings"]["TrackFolders"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		OutputDebugStringA(("Track Folders : " + string(trackFolders ? "Enabled" : "Disabled")).c_str());
+
+		try
+		{
+			cockpitVisor = iniSettings["Settings"]["CockpitVisor"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		OutputDebugStringA(("Cockpit Visor : " + string(trackFolders ? "Enabled" : "Disabled")).c_str());
+
+		if(cockpitVisor)
 		{
 			try
 			{
-				trackFolders = iniSettings["Settings"]["TrackFolders"].getAs<bool>();
+				visorObjectName = iniSettings["CockpitVisor"]["ObjectName"].getString();
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Track Folders : " + string(trackFolders ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Cockpit Visor Object Name: " + visorObjectName).c_str());
+
+			try
+			{
+				visorBytes = iniSettings["CockpitVisor"]["Colour"].getVectorAs<short>();
+			}
+			catch (exception ex) {}
+
+			while (visorBytes.size() < 4)
+			{
+				visorBytes.push_back(0);
+			}
+
+			OutputDebugStringA(("Cockpit Visor Colour: B: " + to_string(visorBytes[0]) + " G: " + to_string(visorBytes[1]) + " R: " + to_string(visorBytes[2]) + " A: " + to_string(visorBytes[3])).c_str());
+			
+			visorColour = 0;
+
+			for (unsigned int i = 0; i < visorBytes.size(); i++)
+			{
+
+				visorColour += (visorBytes[i] << i*8);
+			}
+
+			try
+			{
+				transparencyMultiplier = iniSettings["CockpitVisor"]["Transparency"].getAs<float>();
+			}
+			catch (exception ex) {}
+
+			OutputDebugStringA(("Cockpit Visor Transparency Multiplier: " + to_string(transparencyMultiplier)).c_str());
+		}
+
+		for (int assetIndex = 0; assetIndex < 9; assetIndex++)
+		{
 
 			if (assetIndex < 4)
 			{
@@ -1305,8 +1360,6 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	//Re-route for cockpit mirrors per car
 	MemUtils::rerouteFunction(cockpitMirrorsPerCarStartAddress, PtrToUlong(applyCockpitMirrorsPerCar), VAR_NAME(applyCockpitMirrorsPerCar));
-
-	visorObjectName = "Cockpit";
 
 	//Re-route for cockpit visor
 	MemUtils::rerouteFunction(cockpitVisorStartAddress, PtrToUlong(cockpitVisorFunc), VAR_NAME(cockpitVisorFunc));
