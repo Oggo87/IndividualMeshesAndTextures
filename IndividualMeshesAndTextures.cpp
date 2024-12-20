@@ -1088,15 +1088,18 @@ DWORD WINAPI MainThread(LPVOID param) {
 				visorBytes.push_back(0);
 			}
 
-			OutputDebugStringA(("Cockpit Visor Colour: B: " + to_string(visorBytes[0]) + " G: " + to_string(visorBytes[1]) + " R: " + to_string(visorBytes[2]) + " A: " + to_string(visorBytes[3])).c_str());
-			
 			visorColour = 0;
 
 			for (unsigned int i = 0; i < visorBytes.size(); i++)
 			{
-
-				visorColour += (visorBytes[i] << i*8);
+				if (visorBytes[i] > 255)
+				{
+					visorBytes[i] = 255;
+				}
+				visorColour += (visorBytes[i] << i * 8);
 			}
+
+			OutputDebugStringA(("Cockpit Visor Colour: B: " + to_string(visorBytes[0]) + " G: " + to_string(visorBytes[1]) + " R: " + to_string(visorBytes[2]) + " A: " + to_string(visorBytes[3])).c_str());
 
 			try
 			{
