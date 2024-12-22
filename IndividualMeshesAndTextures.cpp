@@ -119,6 +119,8 @@ DWORD fileNameVar;
 int assetIndex;
 int track;
 
+DWORD CGP4Car = NULL;
+
 string collisionMesh = "";
 
 DWORD fileNotExists = false;
@@ -860,45 +862,59 @@ __declspec(naked) void collisionMeshFunc()
 
 void SetCockpitVisorShaderParameters()
 {
+	//Get cockpit mesh
 	byte* cockpitMeshStruct = GP4MemLib::MemUtils::addressToValue<byte*>(cockpitMesh);
-	int* numCockpitObjects = (int*)(cockpitMeshStruct + 0x1b0);
 
-	//OutputDebugStringA(("Num Cockpit Objects " + std::to_string(*numCockpitObjects)).c_str());
+	//Get number of cockpit objects
+	int* numCockpitObjects = (int*)(cockpitMeshStruct + 0x1b0);
 
 	if (visorObjectIndex > -1 && visorObjectIndex < *numCockpitObjects)
 	{
+		//Get array of mesh objects
 		byte* arrMeshObjects = cockpitMeshStruct + 0x1b4;
 
-		//OutputDebugStringA(("Object Array Address " + std::to_string((DWORD)arrMeshObjects)).c_str());
-
+		//Get pointer to visor object
 		DWORD* visorObject = (DWORD*)(*(DWORD*)arrMeshObjects + visorObjectIndex * 0x34);
 
-		//OutputDebugStringA(("Visor Object Address " + std::to_string((DWORD)visorObject)).c_str());
-
+		//Get Index of visor object
 		int* visorObjectIndex = (int*)(&visorObject[3]);
 
-		//OutputDebugStringA(("Visor Object Index " + std::to_string(*visorObjectIndex)).c_str());
-
+		//Get visor object data
 		DWORD** visorObjectData = (DWORD**)(visorObject[2]);
+
+		//Get Array of Shader Data
 		CGP4MeshShaderData* arrayShaderData = (CGP4MeshShaderData*)visorObjectData[5];
 
-		//OutputDebugStringA(("Visor Object Shader Params Address " + std::to_string((DWORD)arrayShaderData[*visorObjectIndex].params)).c_str());
-
-		//arrayShaderData[*visorObjectIndex].params[0] = 0x808080; //Colour
+		//Set Shader Parameters
+		//Colour
 		std::memcpy(&arrayShaderData[*visorObjectIndex].params[0], &visorColour, 4);
-		//std::memcpy(&arrayShaderData[*visorObjectIndex].params[0], visorBytes, 4);
 
-		//arrayShaderData[*visorObjectIndex].params[1] = (float)0.5; //Multiplier
+		//Multiplier
 		std::memcpy(&arrayShaderData[*visorObjectIndex].params[1], &transparencyMultiplier, 4);
 
-		arrayShaderData[*visorObjectIndex].params[2] = 0xffffff; //Unk
+		//Unknown
+		arrayShaderData[*visorObjectIndex].params[2] = 0xffffff;
 
-		//arrayShaderData[*visorObjectIndex].params[3] = (float)0.5; //Multiplier
+		//Multiplier
 		std::memcpy(&arrayShaderData[*visorObjectIndex].params[3], &transparencyMultiplier, 4);
 
-		arrayShaderData[*visorObjectIndex].params[4] = GP4MemLib::MemUtils::addressToValue<DWORD>(0x00644274); //Unk
+		//Unknown
+		arrayShaderData[*visorObjectIndex].params[4] = GP4MemLib::MemUtils::addressToValue<DWORD>(0x00644274);
 
-		arrayShaderData[*visorObjectIndex].params[5] = 0; //Unk (Reflections?)
+		//Unknown, possibly reflections
+		if(CGP4Car != NULL)
+		{
+			float val1 = atan2f(GP4MemLib::MemUtils::addressToValue<float>(CGP4Car + 0x354), GP4MemLib::MemUtils::addressToValue<float>(CGP4Car + 0x35c));
+			float val2 = atan2f(GP4MemLib::MemUtils::addressToValue<float>(0x00a53294), GP4MemLib::MemUtils::addressToValue<float>(0x00a5329c));
+
+			float val = (val2 + 3.1415927f + val1 + 3.1415927f) * 0.5f * 0.03183099f;
+
+			std::memcpy(&arrayShaderData[*visorObjectIndex].params[5], &val, 4);
+		}
+		else
+		{
+			arrayShaderData[*visorObjectIndex].params[5] = 0;
+		}
 
 	}
 
@@ -1026,6 +1042,10 @@ noObjectFound:
 
 __declspec(naked) void cockpitVisorFunc2()
 {
+	__asm {
+		mov CGP4Car, EBP
+	}
+
 	SetCockpitVisorShaderParameters();
 
 	__asm call SetCockpitMirrorShaderParameters //original function call

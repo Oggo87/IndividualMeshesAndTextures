@@ -64,14 +64,21 @@ Cars		=	0,	1,	2,	3,	4
 ```
 
 #### Settings
-This section contains only one entry: `TrackFolders`. This utility setting, in combination with `AutoName` found in each individual asset section (see [Assets Settings](#Assets-Settings)), tells `IndividualMeshesAndTextures.dll` to look into track subfolders for those assets that are have `PerTrack` set to `true`.
+This section contains two entries:
 
-Tracks are indexed 1 through 17.
+* [Track Folders](#Track-Folders)
+* [Cockpit Visor](#Cockpit-Visor)
 
 ```ini
 [Settings]
 TrackFolders = false
+CockpitVisor = false
 ```
+
+##### Track Folders
+This utility setting, in combination with `AutoName` found in each individual asset section (see [Assets Settings](#Assets-Settings)), tells `IndividualMeshesAndTextures.dll` to look into track subfolders for those assets that are have `PerTrack` set to `true`.
+
+Tracks are indexed 1 through 17.
 
 Example - Per-Track Cars with Track Folders enabled
 
@@ -88,6 +95,22 @@ Ferrari's first car (LOD 0) at Monza will be loaded as follows
 
 ```
 cars\track15\car_ferrari_car1_lod_0.gp4
+```
+
+##### Cockpit Visor
+
+This setting allows to enable using GP4's built-in visor shader in the cockpit mesh. In combination with the entries in the ```CockpitVisor``` section, it's possible to specify the ```ObjectName``` to apply the visor shader to, the ```Colour``` (in ```0-255 BGRA``` format),  and ```Transparency``` (a ```float``` value). The Alpha component of the ```Colour``` and the ```Transparency``` value work combinedly to set the visor's transparency.
+
+Example - Cockpit Visor enabled, using object named `Visor`, with a grey colour and 50% transparency
+
+```ini
+[Settings]
+CockpitVisor = true
+
+[CockpitVisor]
+ObjectName = Visor
+Colour = 128, 128, 128, 0
+Transparency = 0.5
 ```
 
 #### Assets Settings
