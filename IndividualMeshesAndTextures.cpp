@@ -1315,7 +1315,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					{
 						fileNameBuilder << "_track_{track}";
 					}
-					if (assetIndex < ASSET_ID::COCKPITS)
+					if (assetIndex < ASSET_ID::COCKPIT_TEX)
 					{
 						fileNameBuilder << "_" << assetIndex - (ASSET_ID::HELMET_1 - 1);
 					}
