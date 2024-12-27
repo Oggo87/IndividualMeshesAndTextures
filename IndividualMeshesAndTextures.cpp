@@ -101,6 +101,10 @@ DWORD cockpitMesh = 0x00a4d5ec;
 DWORD ReplaceWildCards = 0x005DB088;
 DWORD AssetFileExists = 0x0046af40;
 
+//Function Pointers
+typedef int (__stdcall *AssetFileExistsType)(char*, int);
+AssetFileExistsType AssetFileExistsFunc = NULL;
+
 DWORD GetObjectIndexByName = 0x00457200;
 DWORD GetShader = 0x0045ee70;
 DWORD ApplyShaderToObject = 0x00457260;
@@ -293,12 +297,17 @@ __declspec(naked) void genericMeshFunc()
 	//save volatile registers
 	RegUtils::saveVolatileRegisters();
 
-	__asm { //check if file exists
-		push 0
-		push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-		call AssetFileExists
-		mov fileNotExists, EAX //save comparison result
-	}
+	fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+	//check if file exists
+	fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+	//__asm { //check if file exists
+	//	push 0
+	//	push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+	//	call AssetFileExists
+	//	mov fileNotExists, EAX //save comparison result
+	//}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
@@ -322,25 +331,30 @@ __declspec(naked) void genericMeshFunc()
 		//save volatile registers
 		RegUtils::saveVolatileRegisters();
 
-		__asm { //check if file exists
-			push 0
-			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-			call AssetFileExists
-			mov fileNotExists, EAX //save comparison result
-		}
+		fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+		//check if file exists
+		fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+		//__asm { //check if file exists
+		//	push 0
+		//	push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+		//	call AssetFileExists
+		//	mov fileNotExists, EAX //save comparison result
+		//}
 
 		//restore volatile registers
 		RegUtils::restoreVolatileRegisters();
-	}
 
-	//fall-back to default GP4 file name
-	if (fileNotExists)
-	{
-		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
-		__asm call ReplaceWildCards
+		//fall-back to default GP4 file name
+		if (fileNotExists)
+		{
+			//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+			__asm call ReplaceWildCards
 
-		//calculate new file name using GP4 default naming convention
-		calcFileName(true);
+			//calculate new file name using GP4 default naming convention
+			calcFileName(true);
+		}
 	}
 
 	__asm jmp genericMeshJumpBackAddress //jump back into regular flow
@@ -382,12 +396,17 @@ __declspec(naked) void individualMeshFunc()
 	//save volatile registers
 	RegUtils::saveVolatileRegisters();
 
-	__asm { //check if file exists
-		push 0
-		push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-		call AssetFileExists
-		mov fileNotExists, EAX //save comparison result
-	}
+	fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+	//check if file exists
+	fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+	//__asm { //check if file exists
+	//	push 0
+	//	push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+	//	call AssetFileExists
+	//	mov fileNotExists, EAX //save comparison result
+	//}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
@@ -411,25 +430,30 @@ __declspec(naked) void individualMeshFunc()
 		//save volatile registers
 		RegUtils::saveVolatileRegisters();
 
-		__asm { //check if file exists
-			push 0
-			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-			call AssetFileExists
-			mov fileNotExists, EAX //save comparison result
-		}
+		fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
+
+		//check if file exists
+		fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+		//__asm { //check if file exists
+		//	push 0
+		//	push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
+		//	call AssetFileExists
+		//	mov fileNotExists, EAX //save comparison result
+		//}
 
 		//restore volatile registers
 		RegUtils::restoreVolatileRegisters();
-	}
 
-	//fall-back to default GP4 file name
-	if (fileNotExists)
-	{
-		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
-		__asm call ReplaceWildCards
+		//fall-back to default GP4 file name
+		if (fileNotExists)
+		{
+			//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+			__asm call ReplaceWildCards
 
-		//calculate new file name using GP4 default naming convention
-		calcFileName(true);
+			//calculate new file name using GP4 default naming convention
+			calcFileName(true);
+		}
 	}
 
 	__asm jmp individualMeshJumpBackAddress //jump back into regular flow
@@ -479,12 +503,15 @@ __declspec(naked) void cockpitTextureFunc()
 
 	prepFileNameString(fileNameVar);
 
-	__asm { //check if file exists
-		push 0
-		push fileNameVar //filename
-		call AssetFileExists
-		mov fileNotExists, EAX //save comparison result
-	}
+	//check if file exists
+	fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+	//__asm { //check if file exists
+	//	push 0
+	//	push fileNameVar //filename
+	//	call AssetFileExists
+	//	mov fileNotExists, EAX //save comparison result
+	//}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
@@ -512,25 +539,28 @@ __declspec(naked) void cockpitTextureFunc()
 
 		prepFileNameString(fileNameVar);
 
-		__asm { //check if file exists
-			push 0
-			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-			call AssetFileExists
-			mov fileNotExists, EAX //save comparison result
-		}
+		//check if file exists
+		fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+		//__asm { //check if file exists
+		//	push 0
+		//	push fileNameVar //filename
+		//	call AssetFileExists
+		//	mov fileNotExists, EAX //save comparison result
+		//}
 
 		//restore volatile registers
 		RegUtils::restoreVolatileRegisters();
-	}
 
-	//fall-back to default GP4 file name
-	if (fileNotExists)
-	{
-		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
-		__asm call ReplaceWildCards
+		//fall-back to default GP4 file name
+		if (fileNotExists)
+		{
+			//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+			__asm call ReplaceWildCards
 
-		//calculate new file name using GP4 default naming convention
-		calcFileName(true);
+			//calculate new file name using GP4 default naming convention
+			calcFileName(true);
+		}
 	}
 
 	__asm jmp cockpitTextureJumpBackAddress //jump back into regular flow
@@ -576,12 +606,15 @@ __declspec(naked) void helmetTexture1Func()
 
 	prepFileNameString(fileNameVar);
 
-	__asm { //check if file exists
-		push 0
-		push fileNameVar //filename
-		call AssetFileExists
-		mov fileNotExists, EAX //save comparison result
-	}
+	//check if file exists
+	fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+	//__asm { //check if file exists
+	//	push 0
+	//	push fileNameVar //filename
+	//	call AssetFileExists
+	//	mov fileNotExists, EAX //save comparison result
+	//}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
@@ -609,25 +642,28 @@ __declspec(naked) void helmetTexture1Func()
 
 		prepFileNameString(fileNameVar);
 
-		__asm { //check if file exists
-			push 0
-			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-			call AssetFileExists
-			mov fileNotExists, EAX //save comparison result
-		}
+		//check if file exists
+		fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+		//__asm { //check if file exists
+		//	push 0
+		//	push fileNameVar //filename
+		//	call AssetFileExists
+		//	mov fileNotExists, EAX //save comparison result
+		//}
 
 		//restore volatile registers
 		RegUtils::restoreVolatileRegisters();
-	}
 
-	//fall-back to default GP4 file name
-	if (fileNotExists)
-	{
-		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
-		__asm call ReplaceWildCards
+		//fall-back to default GP4 file name
+		if (fileNotExists)
+		{
+			//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+			__asm call ReplaceWildCards
 
-		//calculate new file name using GP4 default naming convention
-		calcFileName(true);
+			//calculate new file name using GP4 default naming convention
+			calcFileName(true);
+		}
 	}
 
 	__asm jmp helmetTexture1JumpBackAddress //jump back into regular flow
@@ -661,12 +697,15 @@ __declspec(naked) void helmetTexture2Func()
 
 	prepFileNameString(fileNameVar);
 
-	__asm { //check if file exists
-		push 0
-		push fileNameVar //filename
-		call AssetFileExists
-		mov fileNotExists, EAX //save comparison result
-	}
+	//check if file exists
+	fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
+	//__asm { //check if file exists
+	//	push 0
+	//	push fileNameVar //filename
+	//	call AssetFileExists
+	//	mov fileNotExists, EAX //save comparison result
+	//}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
@@ -692,27 +731,30 @@ __declspec(naked) void helmetTexture2Func()
 
 		fileNameVar = MemUtils::addressToValue<DWORD>(espVar);
 
+		//check if file exists
+		fileNotExists = AssetFileExistsFunc((char*)fileNameVar, 0);
+
 		prepFileNameString(fileNameVar);
 
-		__asm { //check if file exists
-			push 0
-			push dword ptr[ESP + 0x04] //filename is now in the second value in the stack
-			call AssetFileExists
-			mov fileNotExists, EAX //save comparison result
-		}
+		//__asm { //check if file exists
+		//	push 0
+		//	push fileNameVar //filename
+		//	call AssetFileExists
+		//	mov fileNotExists, EAX //save comparison result
+		//}
 
 		//restore volatile registers
 		RegUtils::restoreVolatileRegisters();
-	}
 
-	//fall-back to default GP4 file name
-	if (fileNotExists)
-	{
-		//dummy call to ReplaceWildCards to ensure registries and stack are properly set
-		__asm call ReplaceWildCards
+		//fall-back to default GP4 file name
+		if (fileNotExists)
+		{
+			//dummy call to ReplaceWildCards to ensure registries and stack are properly set
+			__asm call ReplaceWildCards
 
-		//calculate new file name using GP4 default naming convention
-		calcFileName(true);
+			//calculate new file name using GP4 default naming convention
+			calcFileName(true);
+		}
 	}
 
 	__asm jmp helmetTexture2JumpBackAddress //jump back into regular flow
@@ -808,12 +850,15 @@ __declspec(naked) void collisionMeshFunc()
 	//save volatile registers
 	RegUtils::saveVolatileRegisters();
 
-	__asm { //check if file exists
-		push 0
-		push collisionMesh //filename
-		call AssetFileExists
-		mov fileNotExists, EAX //save comparison result
-	}
+	//check if file exists
+	fileNotExists = AssetFileExistsFunc((char*)collisionMesh.c_str(), 0);
+
+	//__asm { //check if file exists
+	//	push 0
+	//	push collisionMesh //filename
+	//	call AssetFileExists
+	//	mov fileNotExists, EAX //save comparison result
+	//}
 
 	//restore volatile registers
 	RegUtils::restoreVolatileRegisters();
@@ -846,14 +891,15 @@ __declspec(naked) void collisionMeshFunc()
 
 		//restore volatile registers
 		RegUtils::restoreVolatileRegisters();
+
+		//fall-back to default GP4 file name
+		if (fileNotExists)
+		{
+			//calculate new file name using GP4 default naming convention
+			calcFileName(true);
+		}
 	}
 
-	//fall-back to default GP4 file name
-	if (fileNotExists)
-	{
-		//calculate new file name using GP4 default naming convention
-		calcFileName(true);
-	}
 	//push new collision mesh file name
 	__asm push collisionMesh
 
@@ -1315,7 +1361,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 					{
 						fileNameBuilder << "_track_{track}";
 					}
-					if (assetIndex < ASSET_ID::COCKPITS)
+					if (assetIndex < ASSET_ID::COCKPIT_TEX)
 					{
 						fileNameBuilder << "_" << assetIndex - (ASSET_ID::HELMET_1 - 1);
 					}
@@ -1377,6 +1423,9 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 		}
 	}
+
+	//Set function pointers
+	AssetFileExistsFunc = (AssetFileExistsType)GP4MemLib::MemUtils::addressToPtr<void*>(AssetFileExists);
 
 	//Re-route for cockpit mirrors 
 	MemUtils::rerouteFunction(cockpitMirrorsSingleStartAddress, PtrToUlong(checkNullPointerSingleCockpitMirrors), VAR_NAME(checkNullPointerSingleCockpitMirrors));
