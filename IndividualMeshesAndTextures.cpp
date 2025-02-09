@@ -957,6 +957,120 @@ __declspec(naked) void cockpitVisorFunc2()
 	__asm jmp cockpitVisorJumpBackAddress2 //jump back into regular flow
 }
 
+float tMatrix[4][4] = { {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1} };
+int collisionMeshIndex = 0;
+
+DWORD wheelTreadTextureSetMatrixStartAddress = 0x00488661;
+DWORD wheelTreadTextureSetMatrixJumpBackAddress = 0x00488668;
+
+DWORD ptrCockpitWheels = 0x00a4d684; //needs to be dereferenced!
+DWORD ptrCockpitWheels2 = 0x0;
+
+__declspec(naked) void wheelTreadTextureSetMatrixFunc()
+{
+	//save mesh container pointer
+	__asm mov EDI, dword ptr[ESP + 0x1e0] //0019F5EC //0019EF44
+	__asm mov ptrCockpitWheels2, EDI
+
+	//save collision mesh index
+	__asm mov EDI, dword ptr[ESP + 0x1ec]
+	__asm mov collisionMeshIndex, EDI 
+
+	tMatrix[0][0] = 1;
+	tMatrix[1][1] = 1;
+
+	if (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16 )
+	{
+		tMatrix[1][1] = -1;
+	}
+	if ( ptrCockpitWheels2 == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
+	{
+		tMatrix[0][0] = -1;
+		tMatrix[1][1] = -tMatrix[1][1];
+	}
+
+	//EBP - CGP4Car
+	//EDI - collision mesh index
+	//car+0x164 - collision mesh array
+	//2a0 - collision mesh size
+	//298 - float value fVar26
+	//FLOAT_005f084c = 6.2831855
+	//FLOAT_005f094c = 0.15915494
+
+	//if ((collisionMeshIndex  == 0x14) ||
+	//	(collisionMeshIndex  == 0x18)) {
+	//	fVar26 = 6.2831855 - fVar26;
+	//}
+	
+	__asm lea ECX, [ESP + 0xdc] //original instruction
+
+	//__asm push EAX	//original instruction
+
+	//__asm push 0x0 //override collision part index instruction
+
+	_asm jmp wheelTreadTextureSetMatrixJumpBackAddress //jump back into regular flow
+}
+
+DWORD wheelTreadTextureApplyMatrixStartAddress = 0x0046a333;
+DWORD wheelTreadTextureApplyMatrixJumpBackAddress = 0x0046a338;
+int someIndex = 0;
+bool boolVar = false;
+
+DWORD cgp4Device = 0x009fb3e4;
+DWORD CGP4Device_meth_0x44d310 = 0x0044d310;
+
+__declspec(naked) void wheelTreadTextureApplyMatrixFunc()
+{
+	//original instruction
+	__asm call CGP4Device_meth_0x44d310
+
+	//save someIndex
+	__asm mov EAX, dword ptr[EBP + 0x24]
+	__asm mov someIndex, EAX
+
+	//save boolVar
+	__asm mov boolVar, BL
+
+	if ((boolVar && someIndex == 1) || someIndex == 4)
+	{
+		__asm {
+			mov EAX, cgp4Device
+			mov EAX, dword ptr[EAX]
+
+			lea EDX, tMatrix
+			push EDX
+
+			//D3DTS_TEXTURE0
+			push 0x10
+
+			//d3dDevice_0x8
+			mov EAX, dword ptr[EAX + 0x8]
+			push EAX
+
+			//CGP4Device_009fb3e4->d3dDevice_0x8->lpVtbl->SetTransform
+			mov ECX, dword ptr[EAX]
+			call dword ptr[ECX + 0x94]
+		}
+		//(*CGP4Device_009fb3e4->d3dDevice_0x8->lpVtbl->SetTransform)
+		//	(CGP4Device_009fb3e4->d3dDevice_0x8, D3DTS_TEXTURE0, tMatrix); //D3DTS_TEXTURE0 = 0x10
+	}
+
+
+	/*
+	iVar13 = param_1[9]; //dword ptr [EBP + 0x24]
+    if (bVar11) { //TEST  BL ,BL
+      if (iVar13 == 1) goto LAB_0046a2ff;
+    }
+    else if (iVar13 == 4) {
+LAB_0046a2ff:
+      (*CGP4Device_009fb3e4->d3dDevice_0x8->lpVtbl->SetTransform)
+				(CGP4Device_009fb3e4->d3dDevice_0x8,D3DTS_TEXTURE0,tMatrix); //D3DTS_TEXTURE0 = 0x10
+      goto LAB_0046a338;
+    }
+	*/
+	__asm jmp wheelTreadTextureApplyMatrixJumpBackAddress //jump back into regular flow
+}
+
 DWORD WINAPI MainThread(LPVOID param) {
 
 	//Utility string builders
@@ -1314,6 +1428,12 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	//Re-route for collision mesh
 	MemUtils::rerouteFunction(collisionMeshStartAddress, PtrToUlong(collisionMeshFunc), VAR_NAME(collisionMeshFunc));
+
+	//Re-route for wheel tread texture set matrix
+	MemUtils::rerouteFunction(wheelTreadTextureSetMatrixStartAddress, PtrToUlong(wheelTreadTextureSetMatrixFunc), VAR_NAME(wheelTreadTextureSetMatrixFunc));
+
+	//Re-route for wheel tread texture apply matrix
+	MemUtils::rerouteFunction(wheelTreadTextureApplyMatrixStartAddress, PtrToUlong(wheelTreadTextureApplyMatrixFunc), VAR_NAME(wheelTreadTextureApplyMatrixFunc));
 
 	return 0;
 }
