@@ -70,6 +70,8 @@ DWORD cockpitVisorStartAddress2 = 0x00487a61;
 DWORD cockpitMirrorsSingleStartAddress = 0x00485e55;
 DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
 
+DWORD wheelTreadTextureSetMatrixStartAddress = 0x00488661;
+
 //Jump Back Addresses
 DWORD genericMeshJumpBackAddress = 0x0048710C;
 DWORD individualMeshJumpBackAddress = 0x0048708A;
@@ -82,6 +84,8 @@ DWORD cockpitVisorJumpBackAddress2 = 0x00488a0b;
 
 DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
+
+DWORD wheelTreadTextureSetMatrixJumpBackAddress = 0x00488668;
 
 //Vars and Data Addresses
 DWORD trackIndex = 0x007AD894;
@@ -96,6 +100,12 @@ DWORD helmetTexture1 = 0x644d84;
 DWORD helmetTexture2 = 0x644d74;
 
 DWORD cockpitMesh = 0x00a4d5ec;
+
+DWORD ptrCockpitWheels = 0x00a4d684;
+
+DWORD d3dMatrixAddr_0xb8 = 0x00a4ca50;
+DWORD d3dMatrixAddr_0xbc = 0x00a4ca10;
+DWORD d3dMatrixAddr_0xc0 = 0x00a4d5a0;
 
 //Function Addresses
 DWORD ReplaceWildCards = 0x005DB088;
@@ -127,6 +137,8 @@ DWORD CGP4Car = NULL;
 
 string collisionMesh = "";
 
+int collisionMeshIndex = 0;
+
 DWORD fileNotExists = false;
 
 char textureFileName[128] = "";
@@ -137,6 +149,11 @@ int visorObjectIndex = -1;
 std::vector<short> visorBytes = { 128, 128, 128, 0 };
 DWORD visorColour = 0x808080;
 float transparencyMultiplier = 0.5;
+
+//Tyre Tread Variables
+float(*d3dMatrix_0xc0)[4][4], (*d3dMatrix_0xbc)[4][4], (*d3dMatrix_0xb8)[4][4];
+
+DWORD ptrCockpitWheels2 = 0x0;
 
 string replaceVariables(const string& input, const map<string, string>& replacements) {
 	string result = input;
@@ -957,20 +974,6 @@ __declspec(naked) void cockpitVisorFunc2()
 	__asm jmp cockpitVisorJumpBackAddress2 //jump back into regular flow
 }
 
-DWORD d3dMatrixAddr_0xb8 = 0x00a4ca50;
-DWORD d3dMatrixAddr_0xbc = 0x00a4ca10;
-DWORD d3dMatrixAddr_0xc0 = 0x00a4d5a0;
-
-float(*d3dMatrix_0xc0)[4][4], (*d3dMatrix_0xbc)[4][4], (*d3dMatrix_0xb8)[4][4];
-
-int collisionMeshIndex = 0;
-
-DWORD wheelTreadTextureSetMatrixStartAddress = 0x00488661;
-DWORD wheelTreadTextureSetMatrixJumpBackAddress = 0x00488668;
-
-DWORD ptrCockpitWheels = 0x00a4d684;
-DWORD ptrCockpitWheels2 = 0x0;
-
 __declspec(naked) void wheelTreadTextureSetMatrixFunc()
 {
 	//EBP - CGP4Car
@@ -987,6 +990,7 @@ __declspec(naked) void wheelTreadTextureSetMatrixFunc()
 	__asm mov collisionMeshIndex, EDI 
 
 	//set matrices
+	//loop somehow crashes the game...
 	//for (int i = 0; i < 4; i++)
 	//{
 	//	for (int j = 0; j < 4; j++)

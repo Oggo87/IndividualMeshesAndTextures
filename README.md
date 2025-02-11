@@ -1,10 +1,14 @@
 # Individual Meshes And Textures
 
-A DLL to enable customisable loading for meshes and textures in Grand Prix 4
+A DLL to enable customisable loading for meshes and textures in Grand Prix 4, plus a couple of extra features.
 
 ## Description
 
-This DLL expands original Grand Prix 4 to allow full control of how meshes (front/rear wheels, helmets, cockpits, cars) and textures (cockpits, helmets) are loaded, supporting per-driver, per-team, and per-track custom loading. It includes features to manage LODs (Level of Detail), auto-naming conventions, and fallbacks to default GP4 assets when custom assets are unavailable. See [Usage](#Usage) for more info.
+This DLL expands original Grand Prix 4 to allow full control of how meshes (front/rear wheels, helmets, cockpits, cars) and textures (cockpits, helmets) are loaded, supporting per-driver, per-team, and per-track custom loading. It includes features to manage LODs (Level of Detail), auto-naming conventions, and fallbacks to default GP4 assets when custom assets are unavailable.
+
+Additionally, it enables using the built-in visor shader in the cockpit mesh and fixes the reversed tyre tread bug when using 3D rims.
+
+See [Usage](#Usage) for more info.
 
 ## Getting Started
 
@@ -244,7 +248,13 @@ Diego "Öggo" Noriega
 
 ## Version History
 
-* 1.1
+* 1.4
+    * Update - Added fix for reversed tyre tread bug when using 3D rims
+
+* 1.3
+    * Update - Enable using GP4 Visor Shader for cockpit mesh
+
+* 1.2
     * Update - Added collision mesh assets
 
 * 1.1
