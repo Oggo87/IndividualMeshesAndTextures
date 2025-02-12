@@ -70,7 +70,7 @@ DWORD cockpitVisorStartAddress2 = 0x00487a61;
 DWORD cockpitMirrorsSingleStartAddress = 0x00485e55;
 DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
 
-DWORD wheelTreadTextureSetMatrixStartAddress = 0x00488661;
+DWORD wheelShaderSetMatrixStartAddress = 0x00488661;
 
 //Jump Back Addresses
 DWORD genericMeshJumpBackAddress = 0x0048710C;
@@ -85,7 +85,7 @@ DWORD cockpitVisorJumpBackAddress2 = 0x00488a0b;
 DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
 
-DWORD wheelTreadTextureSetMatrixJumpBackAddress = 0x00488668;
+DWORD wheelShaderSetMatrixJumpBackAddress = 0x00488668;
 
 //Vars and Data Addresses
 DWORD trackIndex = 0x007AD894;
@@ -153,7 +153,7 @@ float transparencyMultiplier = 0.5;
 //Tyre Tread Variables
 float(*d3dMatrix_0xc0)[4][4], (*d3dMatrix_0xbc)[4][4], (*d3dMatrix_0xb8)[4][4];
 
-DWORD ptrCockpitWheels2 = 0x0;
+DWORD ptrMeshContainer = 0x0;
 
 string replaceVariables(const string& input, const map<string, string>& replacements) {
 	string result = input;
@@ -974,7 +974,26 @@ __declspec(naked) void cockpitVisorFunc2()
 	__asm jmp cockpitVisorJumpBackAddress2 //jump back into regular flow
 }
 
-__declspec(naked) void wheelTreadTextureSetMatrixFunc()
+void initD3DMatrixVariables()
+{
+	//set matrices
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			if (i == j)
+			{
+				(*d3dMatrix_0xc0)[i][j] = (*d3dMatrix_0xbc)[i][j] = (*d3dMatrix_0xb8)[i][j] = 1;
+			}
+			else
+			{
+				(*d3dMatrix_0xc0)[i][j] = (*d3dMatrix_0xbc)[i][j] = (*d3dMatrix_0xb8)[i][j] = 0;
+			}
+		}
+	}
+}
+
+__declspec(naked) void wheelShaderSetMatrixFunc()
 {
 	//EBP - CGP4Car
 	//EDI - collision mesh index
@@ -983,88 +1002,28 @@ __declspec(naked) void wheelTreadTextureSetMatrixFunc()
 
 	//save mesh container pointer
 	__asm mov EDI, dword ptr[ESP + 0x1e0]
-	__asm mov ptrCockpitWheels2, EDI
+	__asm mov ptrMeshContainer, EDI
 
 	//save collision mesh index
 	__asm mov EDI, dword ptr[ESP + 0x1ec]
 	__asm mov collisionMeshIndex, EDI 
 
 	//set matrices
-	//loop somehow crashes the game...
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	for (int j = 0; j < 4; j++)
-	//	{
-	//		if (i == j)
-	//		{
-	//			(*d3dMatrix_0xc0)[i][j] = (*d3dMatrix_0xbc)[i][j] = (*d3dMatrix_0xb8)[i][j] = 1;
-	//		}
-	//		else
-	//		{
-	//			(*d3dMatrix_0xc0)[i][j] = (*d3dMatrix_0xbc)[i][j] = (*d3dMatrix_0xb8)[i][j] = 0;
-	//		}
-	//	}
-	//}
+	initD3DMatrixVariables();
 
-	(*d3dMatrix_0xb8)[0][0] = 1;
-	(*d3dMatrix_0xb8)[1][1] = 1;
-	(*d3dMatrix_0xb8)[2][2] = 1;
-	(*d3dMatrix_0xb8)[3][3] = 1;
-	(*d3dMatrix_0xb8)[0][1] = 0;
-	(*d3dMatrix_0xb8)[0][2] = 0;
-	(*d3dMatrix_0xb8)[0][3] = 0;
-	(*d3dMatrix_0xb8)[1][0] = 0;
-	(*d3dMatrix_0xb8)[1][2] = 0;
-	(*d3dMatrix_0xb8)[1][3] = 0;
-	(*d3dMatrix_0xb8)[2][0] = 0;
-	(*d3dMatrix_0xb8)[2][1] = 0;
-	(*d3dMatrix_0xb8)[2][3] = 0;
-	(*d3dMatrix_0xb8)[3][0] = 0;
-	(*d3dMatrix_0xb8)[3][1] = 0;
-	(*d3dMatrix_0xb8)[3][2] = 0;
-	(*d3dMatrix_0xbc)[0][0] = 1;
-	(*d3dMatrix_0xbc)[1][1] = 1;
-	(*d3dMatrix_0xbc)[2][2] = 1;
-	(*d3dMatrix_0xbc)[3][3] = 1;
-	(*d3dMatrix_0xbc)[0][1] = 0;
-	(*d3dMatrix_0xbc)[0][2] = 0;
-	(*d3dMatrix_0xbc)[0][3] = 0;
-	(*d3dMatrix_0xbc)[1][0] = 0;
-	(*d3dMatrix_0xbc)[1][2] = 0;
-	(*d3dMatrix_0xbc)[1][3] = 0;
-	(*d3dMatrix_0xbc)[2][0] = 0;
-	(*d3dMatrix_0xbc)[2][1] = 0;
-	(*d3dMatrix_0xbc)[2][3] = 0;
-	(*d3dMatrix_0xbc)[3][0] = 0;
-	(*d3dMatrix_0xbc)[3][1] = 0;
-	(*d3dMatrix_0xbc)[3][2] = 0;
-	(*d3dMatrix_0xc0)[0][0] = 1;
-	(*d3dMatrix_0xc0)[1][1] = 1;
-	(*d3dMatrix_0xc0)[2][2] = 1;
-	(*d3dMatrix_0xc0)[3][3] = 1;
-	(*d3dMatrix_0xc0)[0][1] = 0;
-	(*d3dMatrix_0xc0)[0][2] = 0;
-	(*d3dMatrix_0xc0)[0][3] = 0;
-	(*d3dMatrix_0xc0)[1][0] = 0;
-	(*d3dMatrix_0xc0)[1][2] = 0;
-	(*d3dMatrix_0xc0)[1][3] = 0;
-	(*d3dMatrix_0xc0)[2][0] = 0;
-	(*d3dMatrix_0xc0)[2][1] = 0;
-	(*d3dMatrix_0xc0)[2][3] = 0;
-	(*d3dMatrix_0xc0)[3][0] = 0;
-	(*d3dMatrix_0xc0)[3][1] = 0;
-	(*d3dMatrix_0xc0)[3][2] = 0;
-
+	//invert the Y axis for the tyre tread texture on the left wheels
 	if (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16 )
 	{
 		(*d3dMatrix_0xc0)[1][1] = -1;
 	}
-	if ( ptrCockpitWheels2 == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
+	//rotate the tyre tread texture when in cockpit view
+	if ( ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
 	{
 		(*d3dMatrix_0xc0)[0][0] = -1;
 		(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
 	}
 
+	//set the matrices in the shader
 	__asm {
 		mov ECX, d3dMatrix_0xb8
 		mov dword ptr[EBX + 0xb8], ECX
@@ -1076,7 +1035,7 @@ __declspec(naked) void wheelTreadTextureSetMatrixFunc()
 	
 	__asm lea ECX, [ESP + 0xdc] //original instruction
 
-	_asm jmp wheelTreadTextureSetMatrixJumpBackAddress //jump back into regular flow
+	_asm jmp wheelShaderSetMatrixJumpBackAddress //jump back into regular flow
 }
 
 DWORD WINAPI MainThread(LPVOID param) {
@@ -1438,7 +1397,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 	MemUtils::rerouteFunction(collisionMeshStartAddress, PtrToUlong(collisionMeshFunc), VAR_NAME(collisionMeshFunc));
 
 	//Re-route for wheel tread texture set matrix
-	MemUtils::rerouteFunction(wheelTreadTextureSetMatrixStartAddress, PtrToUlong(wheelTreadTextureSetMatrixFunc), VAR_NAME(wheelTreadTextureSetMatrixFunc));
+	MemUtils::rerouteFunction(wheelShaderSetMatrixStartAddress, PtrToUlong(wheelShaderSetMatrixFunc), VAR_NAME(wheelShaderSetMatrixFunc));
 
 	//Assign matrix pointers to addresses in GP4 memory
 	d3dMatrix_0xb8 = GP4MemLib::MemUtils::addressToPtr<float[4][4]>(d3dMatrixAddr_0xb8);
