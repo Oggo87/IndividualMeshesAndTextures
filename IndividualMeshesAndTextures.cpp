@@ -70,6 +70,8 @@ DWORD cockpitVisorStartAddress2 = 0x00487a61;
 DWORD cockpitMirrorsSingleStartAddress = 0x00485e55;
 DWORD cockpitMirrorsPerCarStartAddress = 0x00485f43;
 
+DWORD wheelShaderSetMatrixStartAddress = 0x00488661;
+
 //Jump Back Addresses
 DWORD genericMeshJumpBackAddress = 0x0048710C;
 DWORD individualMeshJumpBackAddress = 0x0048708A;
@@ -82,6 +84,8 @@ DWORD cockpitVisorJumpBackAddress2 = 0x00488a0b;
 
 DWORD cockpitMirrorsSingleJumpBackAddress = 0x00485e5b;
 DWORD cockpitMirrorsPerCarJumpBackAddress = 0x00485f53;
+
+DWORD wheelShaderSetMatrixJumpBackAddress = 0x00488668;
 
 //Vars and Data Addresses
 DWORD trackIndex = 0x007AD894;
@@ -96,6 +100,12 @@ DWORD helmetTexture1 = 0x644d84;
 DWORD helmetTexture2 = 0x644d74;
 
 DWORD cockpitMesh = 0x00a4d5ec;
+
+DWORD ptrCockpitWheels = 0x00a4d684;
+
+DWORD d3dMatrixAddr_0xb8 = 0x00a4ca50;
+DWORD d3dMatrixAddr_0xbc = 0x00a4ca10;
+DWORD d3dMatrixAddr_0xc0 = 0x00a4d5a0;
 
 //Function Addresses
 DWORD ReplaceWildCards = 0x005DB088;
@@ -127,6 +137,8 @@ DWORD CGP4Car = NULL;
 
 string collisionMesh = "";
 
+int collisionMeshIndex = 0;
+
 DWORD fileNotExists = false;
 
 char textureFileName[128] = "";
@@ -137,6 +149,11 @@ int visorObjectIndex = -1;
 std::vector<short> visorBytes = { 128, 128, 128, 0 };
 DWORD visorColour = 0x808080;
 float transparencyMultiplier = 0.5;
+
+//Tyre Tread Variables
+float(*d3dMatrix_0xc0)[4][4], (*d3dMatrix_0xbc)[4][4], (*d3dMatrix_0xb8)[4][4];
+
+DWORD ptrMeshContainer = 0x0;
 
 string replaceVariables(const string& input, const map<string, string>& replacements) {
 	string result = input;
@@ -957,6 +974,70 @@ __declspec(naked) void cockpitVisorFunc2()
 	__asm jmp cockpitVisorJumpBackAddress2 //jump back into regular flow
 }
 
+void initD3DMatrixVariables()
+{
+	//set matrices
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			if (i == j)
+			{
+				(*d3dMatrix_0xc0)[i][j] = (*d3dMatrix_0xbc)[i][j] = (*d3dMatrix_0xb8)[i][j] = 1;
+			}
+			else
+			{
+				(*d3dMatrix_0xc0)[i][j] = (*d3dMatrix_0xbc)[i][j] = (*d3dMatrix_0xb8)[i][j] = 0;
+			}
+		}
+	}
+}
+
+__declspec(naked) void wheelShaderSetMatrixFunc()
+{
+	//EBP - CGP4Car
+	//EDI - collision mesh index
+	//EBX - CGP4WheelShader *
+	//ESP + 0x1ec - collision mesh index
+
+	//save mesh container pointer
+	__asm mov EDI, dword ptr[ESP + 0x1e0]
+	__asm mov ptrMeshContainer, EDI
+
+	//save collision mesh index
+	__asm mov EDI, dword ptr[ESP + 0x1ec]
+	__asm mov collisionMeshIndex, EDI 
+
+	//set matrices
+	initD3DMatrixVariables();
+
+	//invert the Y axis for the tyre tread texture on the left wheels
+	if (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16 )
+	{
+		(*d3dMatrix_0xc0)[1][1] = -1;
+	}
+	//rotate the tyre tread texture when in cockpit view
+	if ( ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
+	{
+		(*d3dMatrix_0xc0)[0][0] = -1;
+		(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
+	}
+
+	//set the matrices in the shader
+	__asm {
+		mov ECX, d3dMatrix_0xb8
+		mov dword ptr[EBX + 0xb8], ECX
+		mov ECX, d3dMatrix_0xbc
+		mov dword ptr[EBX + 0xbc], ECX
+		mov ECX, d3dMatrix_0xc0
+		mov dword ptr[EBX + 0xc0], ECX
+	}
+	
+	__asm lea ECX, [ESP + 0xdc] //original instruction
+
+	_asm jmp wheelShaderSetMatrixJumpBackAddress //jump back into regular flow
+}
+
 DWORD WINAPI MainThread(LPVOID param) {
 
 	//Utility string builders
@@ -1314,6 +1395,20 @@ DWORD WINAPI MainThread(LPVOID param) {
 
 	//Re-route for collision mesh
 	MemUtils::rerouteFunction(collisionMeshStartAddress, PtrToUlong(collisionMeshFunc), VAR_NAME(collisionMeshFunc));
+
+	//Re-route for wheel tread texture set matrix
+	MemUtils::rerouteFunction(wheelShaderSetMatrixStartAddress, PtrToUlong(wheelShaderSetMatrixFunc), VAR_NAME(wheelShaderSetMatrixFunc));
+
+	//Assign matrix pointers to addresses in GP4 memory
+	d3dMatrix_0xb8 = GP4MemLib::MemUtils::addressToPtr<float[4][4]>(d3dMatrixAddr_0xb8);
+	d3dMatrix_0xbc = GP4MemLib::MemUtils::addressToPtr<float[4][4]>(d3dMatrixAddr_0xbc);
+	d3dMatrix_0xc0 = GP4MemLib::MemUtils::addressToPtr<float[4][4]>(d3dMatrixAddr_0xc0);
+
+	//Patch CGP4WheelShader
+	//Skip the check for "Rotate wheels via textures" (CGP4WheelShader + 0xb4) by setting the comparison result always to TRUE (AL = 1)
+	DWORD shaderPatchAddress = 0x0046a2a8;
+	BYTE shaderPatch[] = { 0xb0, 0x01, 0x90, 0x90, 0x90, 0x90 }; //mov al, 1 - nop - nop - nop - nop - nop
+	GP4MemLib::MemUtils::patchAddress((LPVOID)shaderPatchAddress, shaderPatch, sizeof(shaderPatch));
 
 	return 0;
 }
