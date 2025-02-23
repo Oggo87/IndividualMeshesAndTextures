@@ -1070,7 +1070,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 		}
 		catch (exception ex) {}
 
-		OutputDebugStringA(("Cockpit Visor : " + string(trackFolders ? "Enabled" : "Disabled")).c_str());
+		OutputDebugStringA(("Cockpit Visor : " + string(cockpitVisor ? "Enabled" : "Disabled")).c_str());
 
 		if(cockpitVisor)
 		{
@@ -1211,7 +1211,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Per Team " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Per Team " + assetNames[assetIndex] + ": " + (perTeam[assetIndex] ? "Enabled" : "Disabled")).c_str());
 
 			//Check if per Driver
 			try
@@ -1220,7 +1220,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Per Driver " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Per Driver " + assetNames[assetIndex] + ": " + (perDriver[assetIndex] ? "Enabled" : "Disabled")).c_str());
 
 			//Check if per Track
 			try
@@ -1229,7 +1229,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Per Track " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Per Track " + assetNames[assetIndex] + ": " + (perTrack[assetIndex] ? "Enabled" : "Disabled")).c_str());
 
 			//Load Track Table
 			try
