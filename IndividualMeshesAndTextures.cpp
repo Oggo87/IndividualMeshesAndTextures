@@ -47,7 +47,7 @@ string defaultFileNames[] = { "CAR_Wheel_Front_LOD_{lod}", "CAR_Wheel_Rear_LOD_{
 string filePartialNames[] = { "Wheel_Front", "Wheel_Rear", "Helmet", "Cockpit", "Car", "collision_mesh", "Driver", "Driver", "cp"};
 
 //Array of mesh and textures filenames
-string fileNames[8];
+string fileNames[9];
 
 //map to store the variables for subsitution
 map<string, string> variables;
@@ -1070,7 +1070,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 		}
 		catch (exception ex) {}
 
-		OutputDebugStringA(("Cockpit Visor : " + string(trackFolders ? "Enabled" : "Disabled")).c_str());
+		OutputDebugStringA(("Cockpit Visor : " + string(cockpitVisor ? "Enabled" : "Disabled")).c_str());
 
 		if(cockpitVisor)
 		{
@@ -1211,7 +1211,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Per Team " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Per Team " + assetNames[assetIndex] + ": " + (perTeam[assetIndex] ? "Enabled" : "Disabled")).c_str());
 
 			//Check if per Driver
 			try
@@ -1220,7 +1220,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Per Driver " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Per Driver " + assetNames[assetIndex] + ": " + (perDriver[assetIndex] ? "Enabled" : "Disabled")).c_str());
 
 			//Check if per Track
 			try
@@ -1229,7 +1229,7 @@ DWORD WINAPI MainThread(LPVOID param) {
 			}
 			catch (exception ex) {}
 
-			OutputDebugStringA(("Per Track " + assetNames[assetIndex] + ": " + (autoName ? "Enabled" : "Disabled")).c_str());
+			OutputDebugStringA(("Per Track " + assetNames[assetIndex] + ": " + (perTrack[assetIndex] ? "Enabled" : "Disabled")).c_str());
 
 			//Load Track Table
 			try
@@ -1345,6 +1345,15 @@ DWORD WINAPI MainThread(LPVOID param) {
 	else
 	{
 		OutputDebugStringA("Failed to open INI file");
+
+		//Fall back to default names for all assets
+		for (int assetIndex = 0; assetIndex < 9; assetIndex++)
+		{
+			fileNames[assetIndex] = defaultFileNames[assetIndex];
+
+			OutputDebugStringA(("Using default file name for " + assetNames[assetIndex] + ": " + fileNames[assetIndex]).c_str());
+
+		}
 	}
 
 	//fill track tables if necessary
