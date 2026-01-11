@@ -4,6 +4,7 @@
 #include "Patches/Assets.h"
 #include "Patches/Pitcrew.h"
 #include "Patches/RearLight.h"
+#include "Utils/Tweaker.h"
 #include "Utils/Helpers.h"
 #include "IniLib/IniLib.h"
 #include <string>
@@ -55,6 +56,9 @@ DWORD WINAPI MainThread(LPVOID param)
 
 		Assets::DefaultSettings();
 	}
+
+	//Initialize Tweaker Hook
+	Tweaker::Hook();
 
 	//Apply General patches
 	General::ApplyPatches();

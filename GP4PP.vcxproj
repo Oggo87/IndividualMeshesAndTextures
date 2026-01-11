@@ -173,6 +173,7 @@
     <ClCompile Include="Patches\HelmetVisor.cpp" />
     <ClCompile Include="Patches\Pitcrew.cpp" />
     <ClCompile Include="Patches\RearLight.cpp" />
+    <ClCompile Include="Utils\Tweaker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Patches\Assets.h" />
@@ -187,6 +188,7 @@
     <ClInclude Include="Utils\CGP4Glass.h" />
     <ClInclude Include="Utils\Helpers.h" />
     <ClInclude Include="Utils\PitLimiter.h" />
+    <ClInclude Include="Utils\Tweaker.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

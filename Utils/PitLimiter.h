@@ -1,5 +1,5 @@
 #pragma once
-#include "Helpers.h"
+#include "Tweaker.h"
 #include "CarDynamicData.h"
 #include "..\GP4MemLib\GP4MemLib.h"
 #include <map>
@@ -11,8 +11,6 @@ namespace GP4PP
 	class PitLimiter {
 
 		PitLimiter() = delete;
-
-		static bool tweaker;
 
 		static const DWORD tweakerPitLimiterStateAddress = 0x40029658;
 
@@ -27,8 +25,10 @@ namespace GP4PP
 		{
 			bool isPlayerCar = (carDynData->id >= 0x80);
 
+			Tweaker* tweaker = Tweaker::getInstance();
+
 			//if (/*tweaker && */isPlayerCar)
-			if (GP4PP::isTweakerEnabled() && isPlayerCar)
+			if (tweaker->isEnabled() && tweaker->getTweakState("PitLimiter") && isPlayerCar)
 			{
 				
 				// Get the car index (0-based)
@@ -117,6 +117,6 @@ namespace GP4PP
 	};
 
 	//Static Definitions
-	bool PitLimiter::tweaker = GP4PP::isTweakerEnabled();
+	//bool PitLimiter::tweaker = GP4PP::isTweakerEnabled();
 	PitLaneStates PitLimiter::pitLaneStates;
 }

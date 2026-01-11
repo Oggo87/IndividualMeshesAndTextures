@@ -72,6 +72,9 @@
     <ClCompile Include="Patches\RearLight.cpp">
       <Filter>Patches\Source</Filter>
     </ClCompile>
+    <ClCompile Include="Utils\Tweaker.cpp">
+      <Filter>Patches\Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Patches\Assets.h">
@@ -108,6 +111,9 @@
       <Filter>Utils</Filter>
     </ClInclude>
     <ClInclude Include="Utils\PitLimiter.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\Tweaker.h">
       <Filter>Utils</Filter>
     </ClInclude>
   </ItemGroup>
