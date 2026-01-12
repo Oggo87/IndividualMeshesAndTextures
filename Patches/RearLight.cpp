@@ -31,6 +31,7 @@ namespace RearLight
 
 	//Parameters
 	unsigned short maxBrakeValue = 0x4000;
+	unsigned short minBrakeValue = 0x333;
 
 	//Data Variables
 	unsigned int trackWet = 0;
@@ -67,7 +68,7 @@ namespace RearLight
 	{
 		carDynData = MemUtils::addressToPtr<CarDynamicData>(carDynDataAddress);
 
-		if (brakeLight && (carDynData->brake > maxBrakeValue))
+		if (brakeLight && (carDynData->brake > minBrakeValue))
 		{
 			rearLights[carIndex].setState(BRAKE);
 		}
@@ -181,6 +182,8 @@ namespace RearLight
 				messageBuilder << " (Clamped to 0 %)";
 				brakeThreshold = 0;
 			}
+
+			minBrakeValue = static_cast<unsigned short>((brakeThreshold / 100.0f) * maxBrakeValue);
 
 			OutputGP4PPDebugString(messageBuilder.str());
 		}
