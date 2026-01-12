@@ -15,6 +15,8 @@ namespace RearLight
 	//General Settings
 	bool wetWeatherLight = true;
 	bool brakeLight = false;
+	bool chargeERSLight = false;
+
 	short brakeThreshold = 5; //%
 	bool pitLimiterLight = true;
 
@@ -40,14 +42,21 @@ namespace RearLight
 
 	CarDynamicData *carDynData;
 
+	/*
+	F1 rear lights flash at different rates (Hz) to signal conditions:
+	4Hz (fast) in the wet for visibility;
+	2Hz (slow) for energy harvesting (ERS recovery) or Pit Limiter use; and
+	2Hz for 10 secs after Safety Car/VSC;
+	*/
+
 	bool RearLight::wetWeatherBlinking = false;
 	int RearLight::wetWeatherPeriodMs = 250;
 
 	bool RearLight::pitLimiterBlinking = true;
 	int RearLight::pitLimiterPeriodMs = 500;
 
-
-	bool pitLimiterOn = false;
+	bool RearLight::chargeERSBlinking = true;
+	int RearLight::chargeERSPeriodMs = 500;
 
 	//static Random Number Generator for random time offsets
 	std::mt19937 Blinker::rng(static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -66,10 +75,11 @@ namespace RearLight
 		{
 			rearLights[carIndex].setState(PIT_LIMITER);
 		}
-		//else if (carDynData->flags_0x7B.energyHarvestingERS) // Charging
-		//{
-		//	rearLights[carIndex].setState(CHARGE);
-		//}
+		// charging when speed > 1ft/s (~1km/h) and either throttle not pressed or brake pressed
+		else if (chargeERSLight && (carDynData->speed > 0x400000) && ((carDynData->throttle == 0) || (carDynData->brake > 0))) 
+		{
+			rearLights[carIndex].setState(CHARGE_ERS);
+		}
 		else if (wetWeatherLight && trackWet)
 		{
 			rearLights[carIndex].setState(WET);
@@ -175,6 +185,7 @@ namespace RearLight
 			OutputGP4PPDebugString(messageBuilder.str());
 		}
 
+		// Pit Limiter rear light
 		try
 		{
 			pitLimiterLight = iniSettings["RearLight"]["PitLimiter"].getAs<bool>();
@@ -205,7 +216,41 @@ namespace RearLight
 				OutputGP4PPDebugString("Rear Light - Pit Limiter Period : " + to_string(RearLight::pitLimiterPeriodMs) + " ms");
 			}
 		}
+
+		// Charge ERS rear light
+		try 
+		{
+			chargeERSLight = iniSettings["RearLight"]["ChargeERS"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		OutputGP4PPDebugString("Rear Light - Charge ERS : " + string(chargeERSLight ? "Enabled" : "Disabled"));
+
+		if (chargeERSLight)
+		{
+			//Charge ERS rear light blinking
+			try
+			{
+				RearLight::chargeERSBlinking = iniSettings["RearLight"]["ChargeERSBlinking"].getAs<bool>();
+			}
+			catch (exception ex) {}
+
+			OutputGP4PPDebugString("Rear Light - Charge ERS Blinking : " + string(RearLight::chargeERSBlinking ? "Enabled" : "Disabled"));
+
+			if (RearLight::chargeERSBlinking)
+			{
+				try
+				{
+					RearLight::chargeERSPeriodMs = iniSettings["RearLight"]["ChargeERSPeriod"].getAs<int>();
+				}
+				catch (exception ex) {}
+
+				OutputGP4PPDebugString("Rear Light - Charge ERS Period : " + to_string(RearLight::chargeERSPeriodMs) + " ms");
+			}
+		}
 	}
+
+
 
 	void ApplyPatches()
 	{

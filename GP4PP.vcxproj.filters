@@ -73,7 +73,7 @@
       <Filter>Patches\Source</Filter>
     </ClCompile>
     <ClCompile Include="Utils\Tweaker.cpp">
-      <Filter>Patches\Source</Filter>
+      <Filter>Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,16 +1,19 @@
 #include "Tweaker.h"
 
-// Static member initialization
-Tweaker* Tweaker::tweakerInstance = nullptr;
-
-__declspec (naked) void LoadTweakerHook()
+namespace GP4PP
 {
-    // Call the Hook method of Tweaker
-    __asm call LoadTweakerFunc;
+    // Static member initialization
+    Tweaker* Tweaker::tweakerInstance = nullptr;
 
-    // Update the enabled state
-    Tweaker::getInstance()->initEnabled();
+    __declspec (naked) void LoadTweakerHook()
+    {
+        // Call the Hook method of Tweaker
+        __asm call Tweaker::LoadTweakerFunc;
 
-    // Jump back to original code flow
-    __asm jmp TweakerJumpBackAddress
+        // Update the enabled state
+        Tweaker::getInstance()->initEnabled();
+
+        // Jump back to original code flow
+        __asm jmp Tweaker::JumpBackAddress
+    }
 }

@@ -14,7 +14,7 @@ namespace RearLight
 		WET,
 		BRAKE,
 		PIT_LIMITER,
-		CHARGE
+		CHARGE_ERS
 
 	};
 
@@ -103,6 +103,8 @@ namespace RearLight
 		static int wetWeatherPeriodMs;
 		static bool pitLimiterBlinking;
 		static int pitLimiterPeriodMs;
+		static bool chargeERSBlinking;
+		static int chargeERSPeriodMs;
 
 		RearLight()
 		{
@@ -114,14 +116,6 @@ namespace RearLight
 		{
 			if (newState != currentState)
 			{
-
-				/*
-				F1 rear lights flash at different rates (Hz) to signal conditions:
-				4Hz (fast) in the wet for visibility;
-				2Hz (slow) for energy harvesting (ERS recovery) or Pit Limiter use; and
-				2Hz for 10 secs after Safety Car/VSC;
-				*/
-
 				currentState = newState;
 				switch (currentState)
 				{
@@ -155,8 +149,16 @@ namespace RearLight
 						lightOn = true;
 					}
 					break;
-				case CHARGE:
-					blinker.enable(500); // 2Hz
+				case CHARGE_ERS:
+					if (chargeERSBlinking)
+					{
+						blinker.enable(chargeERSPeriodMs);
+					}
+					else
+					{
+						blinker.disable();
+						lightOn = true;
+					}
 					break;
 				}
 			}
