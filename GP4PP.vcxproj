@@ -183,6 +183,7 @@
     <ClInclude Include="Patches\General.h" />
     <ClInclude Include="Patches\HelmetVisor.h" />
     <ClInclude Include="Patches\Pitcrew.h" />
+	<ClInclude Include="Patches\RearLight.h" />
     <ClInclude Include="Utils\BGRA.h" />
     <ClInclude Include="Utils\CarDynamicData.h" />
     <ClInclude Include="Utils\CarDynamicDataFlags.h" />

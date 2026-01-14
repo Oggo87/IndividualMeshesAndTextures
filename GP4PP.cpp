@@ -75,6 +75,9 @@ DWORD WINAPI MainThread(LPVOID param)
 	//Apply Helmet Visor patches
 	HelmetVisor::ApplyPatches();
 
+	//Apply Rear Light patches
+	RearLight::ApplyPatches();
+
 	return 0;
 }
 
