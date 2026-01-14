@@ -154,6 +154,8 @@
     <None Include="docs\General-Settings.md" />
     <None Include="docs\Getting-Started.md" />
     <None Include="docs\Pitcrew-Settings.md" />
+    <None Include="docs\Rear-Light-Settings.md" />
+    <None Include="docs\Usage.md" />
     <None Include="docs\Visor-Settings.md" />
     <None Include="README.md" />
   </ItemGroup>
@@ -172,6 +174,8 @@
     <ClCompile Include="Patches\General.cpp" />
     <ClCompile Include="Patches\HelmetVisor.cpp" />
     <ClCompile Include="Patches\Pitcrew.cpp" />
+    <ClCompile Include="Patches\RearLight.cpp" />
+    <ClCompile Include="Utils\Tweaker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Patches\Assets.h" />
@@ -179,9 +183,14 @@
     <ClInclude Include="Patches\General.h" />
     <ClInclude Include="Patches\HelmetVisor.h" />
     <ClInclude Include="Patches\Pitcrew.h" />
+	<ClInclude Include="Patches\RearLight.h" />
     <ClInclude Include="Utils\BGRA.h" />
+    <ClInclude Include="Utils\CarDynamicData.h" />
+    <ClInclude Include="Utils\CarDynamicDataFlags.h" />
     <ClInclude Include="Utils\CGP4Glass.h" />
     <ClInclude Include="Utils\Helpers.h" />
+    <ClInclude Include="Utils\PitLimiter.h" />
+    <ClInclude Include="Utils\Tweaker.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -3,6 +3,8 @@
 #include "Patches/HelmetVisor.h"
 #include "Patches/Assets.h"
 #include "Patches/Pitcrew.h"
+#include "Patches/RearLight.h"
+#include "Utils/Tweaker.h"
 #include "Utils/Helpers.h"
 #include "IniLib/IniLib.h"
 #include <string>
@@ -44,6 +46,9 @@ DWORD WINAPI MainThread(LPVOID param)
 		// Load Asset Settings
 		Assets::LoadSettings(iniSettings);
 
+		// Load Rear Light Settings
+		RearLight::LoadSettings(iniSettings);
+
 	}
 	else
 	{
@@ -51,6 +56,9 @@ DWORD WINAPI MainThread(LPVOID param)
 
 		Assets::DefaultSettings();
 	}
+
+	//Initialize Tweaker Hook
+	Tweaker::Hook();
 
 	//Apply General patches
 	General::ApplyPatches();
@@ -66,6 +74,9 @@ DWORD WINAPI MainThread(LPVOID param)
 
 	//Apply Helmet Visor patches
 	HelmetVisor::ApplyPatches();
+
+	//Apply Rear Light patches
+	RearLight::ApplyPatches();
 
 	return 0;
 }

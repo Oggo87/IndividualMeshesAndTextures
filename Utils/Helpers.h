@@ -49,4 +49,5 @@ namespace GP4PP
 
 		return result;
 	}
+
 };

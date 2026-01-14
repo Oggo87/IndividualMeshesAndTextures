@@ -1,5 +1,10 @@
 # Version History
 
+* 2.2
+    * Added Rear Light Settings to control rear light behaviour in wet weather, when braking, when pit limiter is active and when charging ERS
+    * Added back-end support for reading car's dynamic data in real time. Credits to [René 'SDI' Smit](https://github.com/sdidit) and [Paulo 'Prblanco' Blanco](https://github.com/Prblanco) for their extensive work
+    * Added back-end support for reading GP4 Tweaker's status and its tweaks
+
 * 2.1
     * Added support for per-driver pitcrew textures ***for engineers only***
     * Added settings for external cockpit and helmet visor colours and transparency

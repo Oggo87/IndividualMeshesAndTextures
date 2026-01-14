@@ -49,6 +49,12 @@
     <None Include="docs\Visor-Settings.md">
       <Filter>Docs</Filter>
     </None>
+    <None Include="docs\Usage.md">
+      <Filter>Docs</Filter>
+    </None>
+    <None Include="docs\Rear-Light-Settings.md">
+      <Filter>Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GP4PP.cpp">
@@ -68,6 +74,12 @@
     </ClCompile>
     <ClCompile Include="Patches\HelmetVisor.cpp">
       <Filter>Patches\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Patches\RearLight.cpp">
+      <Filter>Patches\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Utils\Tweaker.cpp">
+      <Filter>Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +106,21 @@
     </ClInclude>
     <ClInclude Include="Patches\HelmetVisor.h">
       <Filter>Patches\Header</Filter>
+    </ClInclude>
+    <ClInclude Include="Patches\RearLight.h">
+      <Filter>Patches\Header</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\CarDynamicData.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\CarDynamicDataFlags.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\PitLimiter.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils\Tweaker.h">
+      <Filter>Utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
