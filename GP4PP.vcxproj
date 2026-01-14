@@ -154,6 +154,8 @@
     <None Include="docs\General-Settings.md" />
     <None Include="docs\Getting-Started.md" />
     <None Include="docs\Pitcrew-Settings.md" />
+    <None Include="docs\Rear-Light-Settings.md" />
+    <None Include="docs\Usage.md" />
     <None Include="docs\Visor-Settings.md" />
     <None Include="README.md" />
   </ItemGroup>

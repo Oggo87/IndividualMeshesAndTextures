@@ -6,5 +6,6 @@ All main settings are contained in `GP4PP.ini` and everything is designed to rev
 
 * [General Settings](General-Settings.md)
 * [Visor Settings](Visor-Settings.md)
+* [Rear Light Settings](Rear-Light-Settings.md)
 * [Pitcrew Settings](Pitcrew-Settings.md)
 * [Assets Settings](Assets-Settings.md)

@@ -49,6 +49,12 @@
     <None Include="docs\Visor-Settings.md">
       <Filter>Docs</Filter>
     </None>
+    <None Include="docs\Usage.md">
+      <Filter>Docs</Filter>
+    </None>
+    <None Include="docs\Rear-Light-Settings.md">
+      <Filter>Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GP4PP.cpp">
