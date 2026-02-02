@@ -10,6 +10,7 @@ namespace General
 	//General settings variables
 	bool disableCDCheck = false;
 	bool fix3DWheelsTreadMapping = false;
+	bool rotateInCockpitView = false;
 	bool stWheelAdvancedCarShader = false;
 
 	//Target Addresses
@@ -74,7 +75,7 @@ namespace General
 			(*d3dMatrix_0xc0)[1][1] = -1;
 		}
 		//rotate the tyre tread texture when in cockpit view
-		if (ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
+		if (rotateInCockpitView && ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
 		{
 			(*d3dMatrix_0xc0)[0][0] = -1;
 			(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
@@ -114,6 +115,15 @@ namespace General
 		catch (exception ex) {}
 
 		OutputGP4PPDebugString("Fix 3D Wheels Tread Mapping : " + string(fix3DWheelsTreadMapping ? "Enabled" : "Disabled"));
+
+		// Rotate cockpit view for front wheels (1 = enabled, 0 = disabled)
+		try
+		{
+			rotateInCockpitView = iniSettings["Settings"]["RotateTreadsInCockpitView"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		OutputGP4PPDebugString("Rotate Treads in Cockpit View : " + string(rotateInCockpitView ? "Enabled" : "Disabled"));
 
 		// Enable Advanced Car Shader for in-cockpit steering wheel
 		try
