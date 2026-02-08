@@ -13,6 +13,9 @@ namespace GP4PP
         // Update the enabled state
         Tweaker::getInstance()->initEnabled();
 
+		// Override tweaker brake light tweak
+		Tweaker::getInstance()->brakeLightTweakOverride();
+
         // Jump back to original code flow
         __asm jmp Tweaker::JumpBackAddress
     }
