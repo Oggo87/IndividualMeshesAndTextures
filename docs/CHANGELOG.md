@@ -1,5 +1,8 @@
 # Version History
 
+* 2.2.1
+    * Added support for overriding brake light behaviour from GP4 Tweaker. See [Tweaker Settings](Tweaker-Settings.md) for more details.
+    * Decoupled the reveresed tread mapping fix between external and cockpit views. Credits to [node91](https://github.com/node91)
 * 2.2
     * Added Rear Light Settings to control rear light behaviour in wet weather, when braking, when pit limiter is active and when charging ERS
     * Added back-end support for reading car's dynamic data in real time. Credits to [René 'SDI' Smit](https://github.com/sdidit) and [Paulo 'Prblanco' Blanco](https://github.com/Prblanco) for their extensive work
