@@ -51,6 +51,25 @@ namespace General
 		}
 	}
 
+	void setD3DMatrix()
+	{
+		bool isCockpitMesh = (ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels));
+
+		//invert the Y axis for the tyre tread texture on the left wheels
+		if (((fix3DWheelsTreadMapping && !isCockpitMesh) || (fix3DWheelsCockpitView && isCockpitMesh))
+			&& (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16))
+		{
+			(*d3dMatrix_0xc0)[1][1] = -1;
+		}
+
+		//rotate the tyre tread texture when in cockpit view
+		if (fix3DWheelsCockpitView && isCockpitMesh)
+		{
+			(*d3dMatrix_0xc0)[0][0] = -1;
+			(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
+		}
+	}
+
 	__declspec(naked) void wheelShaderSetMatrixFunc()
 	{
 		//EBP - CGP4Car
@@ -69,17 +88,7 @@ namespace General
 		//set matrices
 		initD3DMatrixVariables();
 
-		//invert the Y axis for the tyre tread texture on the left wheels
-		if (fix3DWheelsTreadMapping && (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16))
-		{
-			(*d3dMatrix_0xc0)[1][1] = -1;
-		}
-		//rotate the tyre tread texture when in cockpit view
-		if (fix3DWheelsCockpitView && ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
-		{
-			(*d3dMatrix_0xc0)[0][0] = -1;
-			(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
-		}
+		setD3DMatrix();
 
 		//set the matrices in the shader
 		__asm {
