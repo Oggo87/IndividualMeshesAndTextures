@@ -12,6 +12,7 @@ This section contains four entries:
 [Settings]
 DisableCDCheck = false
 Fix3DWheels = false
+Fix3DWheelsCockpitView = false
 TrackFolders = false
 CockpitVisor = false
 StWheelAdvancedCarShader = false
@@ -23,7 +24,15 @@ This utility setting disables the built-in check for an optical drive in GP4, al
 
 ## Fix 3D Wheels
 
-This utility setting fixes the reversed tyre tread bug that occurs when using 3D rims in GP4. When enabled, the tyre treads will display correctly when `Rotate wheels via textures v2` is disabled in `f1graphics.cfg`.
+These two utility settings fix the reversed tyre tread bug that occurs when using 3D rims in GP4. When enabled, the tyre treads will display correctly when `Rotate wheels via textures v2` is disabled in `f1graphics.cfg`. `Fix3DWheels` affects the external view, while `Fix3DWheelsCockpitView` affects the cockpit view. They can be enabled independently, allowing for different behaviour in the two views if desired.
+
+Example - Fix 3D Wheels enabled for external view only
+
+```ini
+[Settings]
+Fix3DWheels = true
+Fix3DWheelsCockpitView = false
+```
 
 ## Track Folders
 

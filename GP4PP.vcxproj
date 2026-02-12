@@ -155,6 +155,7 @@
     <None Include="docs\Getting-Started.md" />
     <None Include="docs\Pitcrew-Settings.md" />
     <None Include="docs\Rear-Light-Settings.md" />
+    <None Include="docs\Tweaker-Settings.md" />
     <None Include="docs\Usage.md" />
     <None Include="docs\Visor-Settings.md" />
     <None Include="README.md" />
@@ -183,7 +184,7 @@
     <ClInclude Include="Patches\General.h" />
     <ClInclude Include="Patches\HelmetVisor.h" />
     <ClInclude Include="Patches\Pitcrew.h" />
-	<ClInclude Include="Patches\RearLight.h" />
+    <ClInclude Include="Patches\RearLight.h" />
     <ClInclude Include="Utils\BGRA.h" />
     <ClInclude Include="Utils\CarDynamicData.h" />
     <ClInclude Include="Utils\CarDynamicDataFlags.h" />

@@ -10,6 +10,7 @@ namespace General
 	//General settings variables
 	bool disableCDCheck = false;
 	bool fix3DWheelsTreadMapping = false;
+	bool fix3DWheelsCockpitView = false;
 	bool stWheelAdvancedCarShader = false;
 
 	//Target Addresses
@@ -50,6 +51,25 @@ namespace General
 		}
 	}
 
+	void setD3DMatrix()
+	{
+		bool isCockpitMesh = (ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels));
+
+		//invert the Y axis for the tyre tread texture on the left wheels
+		if (((fix3DWheelsTreadMapping && !isCockpitMesh) || (fix3DWheelsCockpitView && isCockpitMesh))
+			&& (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16))
+		{
+			(*d3dMatrix_0xc0)[1][1] = -1;
+		}
+
+		//rotate the tyre tread texture when in cockpit view
+		if (fix3DWheelsCockpitView && isCockpitMesh)
+		{
+			(*d3dMatrix_0xc0)[0][0] = -1;
+			(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
+		}
+	}
+
 	__declspec(naked) void wheelShaderSetMatrixFunc()
 	{
 		//EBP - CGP4Car
@@ -68,17 +88,7 @@ namespace General
 		//set matrices
 		initD3DMatrixVariables();
 
-		//invert the Y axis for the tyre tread texture on the left wheels
-		if (collisionMeshIndex == 0x12 || collisionMeshIndex == 0x16)
-		{
-			(*d3dMatrix_0xc0)[1][1] = -1;
-		}
-		//rotate the tyre tread texture when in cockpit view
-		if (ptrMeshContainer == GP4MemLib::MemUtils::addressToValue<DWORD>(ptrCockpitWheels))
-		{
-			(*d3dMatrix_0xc0)[0][0] = -1;
-			(*d3dMatrix_0xc0)[1][1] = -(*d3dMatrix_0xc0)[1][1];
-		}
+		setD3DMatrix();
 
 		//set the matrices in the shader
 		__asm {
@@ -115,6 +125,15 @@ namespace General
 
 		OutputGP4PPDebugString("Fix 3D Wheels Tread Mapping : " + string(fix3DWheelsTreadMapping ? "Enabled" : "Disabled"));
 
+		// Rotate cockpit view for front wheels (1 = enabled, 0 = disabled)
+		try
+		{
+			fix3DWheelsCockpitView = iniSettings["Settings"]["Fix3DWheelsCockpitView"].getAs<bool>();
+		}
+		catch (exception ex) {}
+
+		OutputGP4PPDebugString("Rotate Treads in Cockpit View : " + string(fix3DWheelsCockpitView ? "Enabled" : "Disabled"));
+
 		// Enable Advanced Car Shader for in-cockpit steering wheel
 		try
 		{
@@ -136,7 +155,7 @@ namespace General
 		}
 
 		// Apply Fix 3D Wheels Tread Mapping Patch
-		if (fix3DWheelsTreadMapping)
+		if (fix3DWheelsTreadMapping || fix3DWheelsCockpitView)
 		{
 			//Re-route for wheel tread texture set matrix
 			MemUtils::rerouteFunction(wheelShaderSetMatrixStartAddress, PtrToUlong(wheelShaderSetMatrixFunc), VAR_NAME(wheelShaderSetMatrixFunc));

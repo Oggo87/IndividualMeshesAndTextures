@@ -21,7 +21,7 @@ namespace GP4PP
         }
 
         // Hook responsible for instancing + injection logic
-        static void Hook()
+        static void Hook(IniLib::IniFile iniSettings)
         {
             if (tweakerInstance)
                 return;
@@ -29,6 +29,15 @@ namespace GP4PP
             GP4MemLib::MemUtils::rerouteFunction(HookAddress, PtrToUlong(LoadTweakerHook), VAR_NAME(LoadTweakerHook));
 
             tweakerInstance = new Tweaker();
+
+			// Load Override Brake Light Tweak setting
+            try
+            {
+                tweakerInstance->overrideBrakeLightTweak = iniSettings["Tweaker"]["OverrideBrakeLight"].getAs<bool>();
+            }
+            catch (exception ex) {}
+
+            OutputGP4PPDebugString("Override Brake Light Tweak: " + string(tweakerInstance->overrideBrakeLightTweak ? "Enabled" : "Disabled"));
         }
 
         // enabled property (default: false)
@@ -77,6 +86,26 @@ namespace GP4PP
             }
         }
 
+        void brakeLightTweakOverride() const
+        {
+            if (!enabled)
+                return;
+
+            if (overrideBrakeLightTweak && getTweakState("RearLightBrake"))
+            {
+
+                // Restore original GP4 op-code, overriding the tweaker patch
+				DWORD tweakerBrakePatchAddress1 = 0x00487a81;
+				BYTE tweakerBrakePatch1[] = { 0x8a, 0x85, 0xd0, 0x49, 0x00, 0x00, 0x84, 0xc0, 0x74, 0x22, 0x8a, 0x85, 0xd4, 0x13, 0x00, 0x00 };
+				GP4MemLib::MemUtils::patchAddress((LPVOID)tweakerBrakePatchAddress1, tweakerBrakePatch1, sizeof(tweakerBrakePatch1));
+
+                DWORD tweakerBrakePatchAddress2 = 0x0048ccba;
+                BYTE tweakerBrakePatch2[] = { 0x8a, 0x86, 0xd0, 0x49, 0x00, 0x00, 0x84, 0xc0, 0x0f, 0x84, 0x64, 0x04, 0x00, 0x00 };
+                GP4MemLib::MemUtils::patchAddress((LPVOID)tweakerBrakePatchAddress2, tweakerBrakePatch2, sizeof(tweakerBrakePatch2));
+
+            }
+		}
+
         // Disable destructor
         ~Tweaker() = default;
 
@@ -85,7 +114,8 @@ namespace GP4PP
         Tweaker& operator=(const Tweaker&) = delete;
 
         // Member variables
-        bool enabled;
+        bool enabled = false;
+		bool overrideBrakeLightTweak = false;
         IniLib::IniFile tweakerIni;
 
         // Static instance pointer

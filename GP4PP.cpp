@@ -49,6 +49,9 @@ DWORD WINAPI MainThread(LPVOID param)
 		// Load Rear Light Settings
 		RearLight::LoadSettings(iniSettings);
 
+		//Initialize Tweaker Hook
+		Tweaker::Hook(iniSettings);
+
 	}
 	else
 	{
@@ -56,9 +59,6 @@ DWORD WINAPI MainThread(LPVOID param)
 
 		Assets::DefaultSettings();
 	}
-
-	//Initialize Tweaker Hook
-	Tweaker::Hook();
 
 	//Apply General patches
 	General::ApplyPatches();
