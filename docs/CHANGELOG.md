@@ -1,5 +1,7 @@
 # Version History
 
+* 2.2.2
+    * Added support for forcing the z-buffer format used by D3D directly from within GP4
 * 2.2.1
     * Added support for overriding brake light behaviour from GP4 Tweaker. See [Tweaker Settings](Tweaker-Settings.md) for more details.
     * Decoupled the reveresed tread mapping fix between external and cockpit views. Credits to [node91](https://github.com/node91)

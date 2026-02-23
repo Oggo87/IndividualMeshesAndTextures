@@ -151,6 +151,7 @@
     </CopyFileToFolders>
     <None Include="docs\Assets-Settings.md" />
     <None Include="docs\CHANGELOG.md" />
+    <None Include="docs\D3D-Settings.md" />
     <None Include="docs\General-Settings.md" />
     <None Include="docs\Getting-Started.md" />
     <None Include="docs\Pitcrew-Settings.md" />
@@ -172,6 +173,7 @@
     <ClCompile Include="GP4PP.cpp" />
     <ClCompile Include="Patches\Assets.cpp" />
     <ClCompile Include="Patches\CockpitVisor.cpp" />
+    <ClCompile Include="Patches\D3D.cpp" />
     <ClCompile Include="Patches\General.cpp" />
     <ClCompile Include="Patches\HelmetVisor.cpp" />
     <ClCompile Include="Patches\Pitcrew.cpp" />
@@ -181,6 +183,7 @@
   <ItemGroup>
     <ClInclude Include="Patches\Assets.h" />
     <ClInclude Include="Patches\CockpitVisor.h" />
+    <ClInclude Include="Patches\D3D.h" />
     <ClInclude Include="Patches\General.h" />
     <ClInclude Include="Patches\HelmetVisor.h" />
     <ClInclude Include="Patches\Pitcrew.h" />
