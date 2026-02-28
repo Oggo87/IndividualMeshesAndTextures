@@ -58,6 +58,9 @@
     <None Include="docs\Tweaker-Settings.md">
       <Filter>Docs</Filter>
     </None>
+    <None Include="docs\D3D-Settings.md">
+      <Filter>Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GP4PP.cpp">
@@ -83,6 +86,9 @@
     </ClCompile>
     <ClCompile Include="Utils\Tweaker.cpp">
       <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="Patches\D3D.cpp">
+      <Filter>Patches\Source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -124,6 +130,9 @@
     </ClInclude>
     <ClInclude Include="Utils\Tweaker.h">
       <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Patches\D3D.h">
+      <Filter>Patches\Header</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

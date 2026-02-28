@@ -1,4 +1,5 @@
 #include "Patches/General.h"
+#include "Patches/D3D.h"
 #include "Patches/CockpitVisor.h"
 #include "Patches/HelmetVisor.h"
 #include "Patches/Assets.h"
@@ -37,6 +38,9 @@ DWORD WINAPI MainThread(LPVOID param)
 		// Load General Settings
 		General::LoadSettings(iniSettings);
 
+		// Load D3D Settings
+		D3D::LoadSettings(iniSettings);
+
 		// Load Cockpit Visor Settings
 		CockpitVisor::LoadSettings(iniSettings, basePath);
 
@@ -62,6 +66,9 @@ DWORD WINAPI MainThread(LPVOID param)
 
 	//Apply General patches
 	General::ApplyPatches();
+
+	//Apply D3D patches
+	D3D::ApplyPatches();
 
 	//Apply Asset patches
 	Assets::ApplyPatches();
